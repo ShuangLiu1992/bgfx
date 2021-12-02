@@ -107,6 +107,11 @@ namespace entry
 			EMSCRIPTEN_CHECK(emscripten_set_mouseup_callback(canvas, this, true, mouseCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_mousemove_callback(canvas, this, true, mouseCb) );
 
+			EMSCRIPTEN_CHECK(emscripten_set_touchstart_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchend_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchmove_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchcancel_callback(canvas, nullptr, true, touchCb));
+
 			EMSCRIPTEN_CHECK(emscripten_set_wheel_callback(canvas, this, true, wheelCb) );
 
 			EMSCRIPTEN_CHECK(emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCb) );
@@ -138,6 +143,7 @@ namespace entry
 		}
 
 		static EM_BOOL mouseCb(int eventType, const EmscriptenMouseEvent* event, void* userData);
+		static EM_BOOL touchCb(int eventType, const EmscriptenTouchEvent* event, void* userData);
 		static EM_BOOL wheelCb(int eventType, const EmscriptenWheelEvent* event, void* userData);
 		static EM_BOOL keyCb(int eventType, const EmscriptenKeyboardEvent* event, void* userData);
 		static EM_BOOL resizeCb(int eventType, const EmscriptenUiEvent* event, void* userData);
@@ -186,6 +192,38 @@ namespace entry
 						, (_eventType != EMSCRIPTEN_EVENT_MOUSEUP)
 						);
 					return true;
+			}
+		}
+
+		return false;
+	}
+
+	EM_BOOL Context::touchCb(int32_t _eventType, const EmscriptenTouchEvent* _event, void* _userData)
+	{
+		if (_event)
+		{
+			switch (_eventType)
+			{
+			case EMSCRIPTEN_EVENT_TOUCHMOVE:
+				entry::s_ctx.m_mx = _event->touches[0].targetX;
+				entry::s_ctx.m_my = _event->touches[0].targetY;
+				entry::s_ctx.m_eventQueue.postMouseEvent(entry::s_defaultWindow, entry::s_ctx.m_mx, entry::s_ctx.m_my, entry::s_ctx.m_scroll);
+				return true;
+
+			case EMSCRIPTEN_EVENT_TOUCHSTART:
+			case EMSCRIPTEN_EVENT_TOUCHEND:
+			case EMSCRIPTEN_EVENT_TOUCHCANCEL:
+				entry::s_ctx.m_mx = _event->touches[0].targetX;
+				entry::s_ctx.m_my = _event->touches[0].targetY;
+				entry::s_ctx.m_eventQueue.postMouseEvent(
+					entry::s_defaultWindow
+					, entry::s_ctx.m_mx
+					, entry::s_ctx.m_my
+					, entry::s_ctx.m_scroll
+					, entry::MouseButton::Left
+					, (_eventType != EMSCRIPTEN_EVENT_TOUCHEND)
+				);
+				return true;
 			}
 		}
 
