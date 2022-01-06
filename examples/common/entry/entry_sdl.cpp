@@ -505,6 +505,7 @@ namespace entry
 							, m_height
 							, SDL_WINDOW_SHOWN
 							| SDL_WINDOW_RESIZABLE
+							| SDL_WINDOW_ALLOW_HIGHDPI
 							);
 
 			m_flags[0] = 0
