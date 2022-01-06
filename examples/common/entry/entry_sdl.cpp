@@ -505,7 +505,11 @@ namespace entry
 							, m_height
 							, SDL_WINDOW_SHOWN
 							| SDL_WINDOW_RESIZABLE
+							| SDL_WINDOW_ALLOW_HIGHDPI
 							);
+			int w, h;
+			SDL_GL_GetDrawableSize(m_window[0], &w, &h);
+			printf("%d %d %d %d", w, h, m_width, m_height);
 
 			m_flags[0] = 0
 				| ENTRY_WINDOW_FLAG_ASPECT_RATIO
