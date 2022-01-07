@@ -513,9 +513,6 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		_app->init(_argc, _argv, s_width, s_height);
 		bgfx::frame();
 
-		WindowHandle defaultWindow = { 0 };
-		setWindowSize(defaultWindow, s_width, s_height);
-
 #if BX_PLATFORM_EMSCRIPTEN
 		s_app = _app;
 		emscripten_set_main_loop(&updateApp, -1, 1);
