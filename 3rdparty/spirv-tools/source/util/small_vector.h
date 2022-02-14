@@ -64,6 +64,11 @@ class SmallVector {
     }
   }
 
+  template <class InputIt>
+  SmallVector(InputIt first, InputIt last) : SmallVector() {
+    insert(end(), first, last);
+  }
+
   SmallVector(std::vector<T>&& vec) : SmallVector() {
     if (vec.size() > small_size) {
       large_data_ = MakeUnique<std::vector<T>>(std::move(vec));
@@ -175,9 +180,12 @@ class SmallVector {
     return true;
   }
 
+// Avoid infinite recursion from rewritten operators in C++20
+#if __cplusplus <= 201703L
   friend bool operator==(const std::vector<T>& lhs, const SmallVector& rhs) {
     return rhs == lhs;
   }
+#endif
 
   friend bool operator!=(const SmallVector& lhs, const std::vector<T>& rhs) {
     return !(lhs == rhs);
@@ -363,7 +371,7 @@ class SmallVector {
       }
     }
 
-    // Upate the size.
+    // Update the size.
     size_ += num_of_new_elements;
     return pos;
   }
@@ -449,7 +457,7 @@ class SmallVector {
   T* small_data_;
 
   // The actual data used to store the array elements.  It must never be used
-  // directly, but must only be accesed through |small_data_|.
+  // directly, but must only be accessed through |small_data_|.
   typename std::aligned_storage<sizeof(T), std::alignment_of<T>::value>::type
       buffer[small_size];
 

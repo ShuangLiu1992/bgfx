@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2021 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2022 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -604,7 +604,7 @@ public static class bgfx
 		Text                   = 0x00000008,
 	
 		/// <summary>
-		/// Enable profiler.
+		/// Enable profiler. This causes per-view statistics to be collected, available through `bgfx::Stats::ViewStats`. This is unrelated to the profiler functions in `bgfx::CallbackI`.
 		/// </summary>
 		Profiler               = 0x00000010,
 	}
@@ -1270,6 +1270,11 @@ public static class bgfx
 		Amd                    = 0x1002,
 	
 		/// <summary>
+		/// Apple adapter.
+		/// </summary>
+		Apple                  = 0x106b,
+	
+		/// <summary>
 		/// Intel adapter.
 		/// </summary>
 		Intel                  = 0x8086,
@@ -1278,6 +1283,11 @@ public static class bgfx
 		/// nVidia adapter.
 		/// </summary>
 		Nvidia                 = 0x10de,
+	
+		/// <summary>
+		/// Microsoft adapter.
+		/// </summary>
+		Microsoft              = 0x1414,
 	}
 	
 	[AllowDuplicates]
@@ -3648,7 +3658,7 @@ public static class bgfx
 	
 	/// <summary>
 	/// Reserve matrices in internal matrix cache.
-	/// @attention Pointer returned can be modifed until `bgfx::frame` is called.
+	/// @attention Pointer returned can be modified until `bgfx::frame` is called.
 	/// </summary>
 	///
 	/// <param name="_transform">Pointer to `Transform` structure.</param>
@@ -3767,7 +3777,7 @@ public static class bgfx
 	public static extern void encoder_set_transient_vertex_buffer_with_layout(Encoder* _this, uint8 _stream, TransientVertexBuffer* _tvb, uint32 _startVertex, uint32 _numVertices, VertexLayoutHandle _layoutHandle);
 	
 	/// <summary>
-	/// Set number of vertices for auto generated vertices use in conjuction
+	/// Set number of vertices for auto generated vertices use in conjunction
 	/// with gl_VertexID.
 	/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
 	/// </summary>
@@ -3811,7 +3821,7 @@ public static class bgfx
 	public static extern void encoder_set_instance_data_from_dynamic_vertex_buffer(Encoder* _this, DynamicVertexBufferHandle _handle, uint32 _startVertex, uint32 _num);
 	
 	/// <summary>
-	/// Set number of instances for auto generated instances use in conjuction
+	/// Set number of instances for auto generated instances use in conjunction
 	/// with gl_InstanceID.
 	/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
 	/// </summary>
@@ -4196,7 +4206,7 @@ public static class bgfx
 	
 	/// <summary>
 	/// Reserve matrices in internal matrix cache.
-	/// @attention Pointer returned can be modifed until `bgfx::frame` is called.
+	/// @attention Pointer returned can be modified until `bgfx::frame` is called.
 	/// </summary>
 	///
 	/// <param name="_transform">Pointer to `Transform` structure.</param>
@@ -4325,7 +4335,7 @@ public static class bgfx
 	public static extern void set_transient_vertex_buffer_with_layout(uint8 _stream, TransientVertexBuffer* _tvb, uint32 _startVertex, uint32 _numVertices, VertexLayoutHandle _layoutHandle);
 	
 	/// <summary>
-	/// Set number of vertices for auto generated vertices use in conjuction
+	/// Set number of vertices for auto generated vertices use in conjunction
 	/// with gl_VertexID.
 	/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
 	/// </summary>
@@ -4369,7 +4379,7 @@ public static class bgfx
 	public static extern void set_instance_data_from_dynamic_vertex_buffer(DynamicVertexBufferHandle _handle, uint32 _startVertex, uint32 _num);
 	
 	/// <summary>
-	/// Set number of instances for auto generated instances use in conjuction
+	/// Set number of instances for auto generated instances use in conjunction
 	/// with gl_InstanceID.
 	/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
 	/// </summary>

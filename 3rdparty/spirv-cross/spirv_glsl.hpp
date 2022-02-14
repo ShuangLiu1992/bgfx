@@ -342,7 +342,7 @@ protected:
 	// TODO remove this function when all subgroup ops are supported (or make it always return true)
 	static bool is_supported_subgroup_op_in_opengl(spv::Op op);
 
-	void reset();
+	void reset(uint32_t iteration_count);
 	void emit_function(SPIRFunction &func, const Bitset &return_flags);
 
 	bool has_extension(const std::string &ext) const;
@@ -385,8 +385,8 @@ protected:
 	                                const std::string &qualifier = "", uint32_t base_offset = 0);
 	virtual void emit_struct_padding_target(const SPIRType &type);
 	virtual std::string image_type_glsl(const SPIRType &type, uint32_t id = 0);
-	std::string constant_expression(const SPIRConstant &c);
-	std::string constant_op_expression(const SPIRConstantOp &cop);
+	std::string constant_expression(const SPIRConstant &c, bool inside_block_like_struct_scope = false);
+	virtual std::string constant_op_expression(const SPIRConstantOp &cop);
 	virtual std::string constant_expression_vector(const SPIRConstant &c, uint32_t vector);
 	virtual void emit_fixup();
 	virtual std::string variable_decl(const SPIRType &type, const std::string &name, uint32_t id = 0);
@@ -577,7 +577,7 @@ protected:
 		bool supports_extensions = false;
 		bool supports_empty_struct = false;
 		bool array_is_value_type = true;
-		bool buffer_offset_array_is_value_type = true;
+		bool array_is_value_type_in_buffer_blocks = true;
 		bool comparison_image_samples_scalar = false;
 		bool native_pointers = false;
 		bool support_small_type_sampling_result = false;
@@ -586,13 +586,15 @@ protected:
 		bool needs_row_major_load_workaround = false;
 		bool support_pointer_to_pointer = false;
 		bool support_precise_qualifier = false;
+		bool support_64bit_switch = false;
+		bool workgroup_size_is_hidden = false;
 	} backend;
 
 	void emit_struct(SPIRType &type);
 	void emit_resources();
 	void emit_extension_workarounds(spv::ExecutionModel model);
 	void emit_buffer_block_native(const SPIRVariable &var);
-	void emit_buffer_reference_block(SPIRType &type, bool forward_declaration);
+	void emit_buffer_reference_block(uint32_t type_id, bool forward_declaration);
 	void emit_buffer_block_legacy(const SPIRVariable &var);
 	void emit_buffer_block_flattened(const SPIRVariable &type);
 	void fixup_implicit_builtin_block_names();
@@ -609,6 +611,7 @@ protected:
 	void emit_block_chain(SPIRBlock &block);
 	void emit_hoisted_temporaries(SmallVector<std::pair<TypeID, ID>> &temporaries);
 	std::string constant_value_macro_name(uint32_t id);
+	int get_constant_mapping_to_workgroup_component(const SPIRConstant &constant) const;
 	void emit_constant(const SPIRConstant &constant);
 	void emit_specialization_constant_op(const SPIRConstantOp &constant);
 	std::string emit_continue_block(uint32_t continue_block, bool follow_true_block, bool follow_false_block);
@@ -715,7 +718,7 @@ protected:
 	void append_global_func_args(const SPIRFunction &func, uint32_t index, SmallVector<std::string> &arglist);
 	std::string to_non_uniform_aware_expression(uint32_t id);
 	std::string to_expression(uint32_t id, bool register_expression_read = true);
-	std::string to_composite_constructor_expression(uint32_t id, bool uses_buffer_offset);
+	std::string to_composite_constructor_expression(uint32_t id, bool block_like_type);
 	std::string to_rerolled_array_expression(const std::string &expr, const SPIRType &type);
 	std::string to_enclosed_expression(uint32_t id, bool register_expression_read = true);
 	std::string to_unpacked_expression(uint32_t id, bool register_expression_read = true);
@@ -903,8 +906,8 @@ protected:
 	// Builtins in GLSL are always specific signedness, but the SPIR-V can declare them
 	// as either unsigned or signed.
 	// Sometimes we will need to automatically perform casts on load and store to make this work.
-	virtual void cast_to_builtin_store(uint32_t target_id, std::string &expr, const SPIRType &expr_type);
-	virtual void cast_from_builtin_load(uint32_t source_id, std::string &expr, const SPIRType &expr_type);
+	virtual void cast_to_variable_store(uint32_t target_id, std::string &expr, const SPIRType &expr_type);
+	virtual void cast_from_variable_load(uint32_t source_id, std::string &expr, const SPIRType &expr_type);
 	void unroll_array_from_complex_load(uint32_t target_id, uint32_t source_id, std::string &expr);
 	bool unroll_array_to_complex_store(uint32_t target_id, uint32_t source_id);
 	void convert_non_uniform_expression(std::string &expr, uint32_t ptr_id);
