@@ -32,8 +32,6 @@ project ("example-common")
 	files {
 		path.join(BGFX_DIR, "3rdparty/meshoptimizer/src/**.cpp"),
 		path.join(BGFX_DIR, "3rdparty/meshoptimizer/src/**.h"),
-		path.join(BGFX_DIR, "3rdparty/dear-imgui/**.cpp"),
-		path.join(BGFX_DIR, "3rdparty/dear-imgui/**.h"),
 		path.join(BGFX_DIR, "examples/common/**.cpp"),
 		path.join(BGFX_DIR, "examples/common/**.h"),
 	}
