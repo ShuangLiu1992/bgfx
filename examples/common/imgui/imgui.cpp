@@ -391,12 +391,10 @@ struct OcornutImguiContext
 			, bgfx::copy(data, width*height*4)
 			);
 
-		ImGui::InitDockContext();
 	}
 
 	void destroy()
 	{
-		ImGui::ShutdownDockContext();
 		ImGui::DestroyContext(m_imgui);
 
 		bgfx::destroy(s_tex);
@@ -475,8 +473,6 @@ struct OcornutImguiContext
 #endif // USE_ENTRY
 
 		ImGui::NewFrame();
-
-		ImGuizmo::BeginFrame();
 	}
 
 	void endFrame()
