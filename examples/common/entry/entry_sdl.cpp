@@ -341,6 +341,7 @@ namespace entry
 		SDL_USER_WINDOW_TOGGLE_FRAME,
 		SDL_USER_WINDOW_TOGGLE_FULL_SCREEN,
 		SDL_USER_WINDOW_MOUSE_LOCK,
+		SDL_USER_WINDOW_MAXIMIZE,
 	};
 
 	static void sdlPostEvent(SDL_USER_WINDOW _type, WindowHandle _handle, Msg* _msg = NULL, uint32_t _code = 0)
@@ -504,14 +505,18 @@ namespace entry
 							, m_height
 							, SDL_WINDOW_SHOWN
 							| SDL_WINDOW_RESIZABLE
+							| SDL_WINDOW_ALLOW_HIGHDPI
 							);
+			int w, h;
+			SDL_GL_GetDrawableSize(m_window[0], &w, &h);
+			printf("%d %d %d %d", w, h, m_width, m_height);
 
 			m_flags[0] = 0
 				| ENTRY_WINDOW_FLAG_ASPECT_RATIO
 				| ENTRY_WINDOW_FLAG_FRAME
 				;
 
-			s_userEventStart = SDL_RegisterEvents(7);
+			s_userEventStart = SDL_RegisterEvents(8);
 
 			sdlSetWindow(m_window[0]);
 			bgfx::renderFrame();
@@ -974,6 +979,13 @@ namespace entry
 								}
 								break;
 
+							case SDL_USER_WINDOW_MAXIMIZE:
+								{
+									WindowHandle handle = getWindowHandle(uev);
+									SDL_MaximizeWindow(m_window[handle.idx]);
+								}
+								break;
+
 							default:
 								break;
 							}
@@ -1155,6 +1167,11 @@ namespace entry
 	void toggleFullscreen(WindowHandle _handle)
 	{
 		sdlPostEvent(SDL_USER_WINDOW_TOGGLE_FULL_SCREEN, _handle);
+	}
+
+	void maximizeWindow(WindowHandle _handle)
+	{
+		sdlPostEvent(SDL_USER_WINDOW_MAXIMIZE, _handle);
 	}
 
 	void setMouseLock(WindowHandle _handle, bool _lock)

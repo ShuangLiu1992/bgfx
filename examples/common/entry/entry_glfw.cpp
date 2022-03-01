@@ -284,6 +284,7 @@ namespace entry
 		GLFW_WINDOW_TOGGLE_FRAME,
 		GLFW_WINDOW_TOGGLE_FULL_SCREEN,
 		GLFW_WINDOW_MOUSE_LOCK,
+		GLFW_WINDOW_MAXIMIZE,
 	};
 
 	struct Msg
@@ -580,6 +581,13 @@ namespace entry
 						}
 						break;
 
+					case GLFW_WINDOW_MAXIMIZE:
+						{
+							GLFWwindow* window = m_windows[msg->m_handle.idx];
+							glfwMaximizeWindow(window);
+						}
+						break;
+
 					case GLFW_WINDOW_TOGGLE_FULL_SCREEN:
 						{
 							GLFWwindow* window = m_windows[msg->m_handle.idx];
@@ -862,6 +870,13 @@ namespace entry
 	void setWindowFlags(WindowHandle _handle, uint32_t _flags, bool _enabled)
 	{
 		BX_UNUSED(_handle, _flags, _enabled);
+	}
+
+	void maximizeWindow(WindowHandle _handle)
+	{
+		Msg* msg = new Msg(GLFW_WINDOW_MAXIMIZE);
+		msg->m_handle = _handle;
+		s_ctx.m_msgs.push(msg);
 	}
 
 	void toggleFullscreen(WindowHandle _handle)
