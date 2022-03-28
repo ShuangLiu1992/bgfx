@@ -12,20 +12,14 @@
 #include <bx/thread.h>
 #include <bx/file.h>
 
+#include <unistd.h>
+
 #include <android/input.h>
 #include <android/log.h>
 #include <android/looper.h>
 #include <android/window.h>
 #include <android_native_app_glue.h>
 #include <android/native_window.h>
-
-extern "C"
-{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <android_native_app_glue.c>
-#pragma GCC diagnostic pop
-} // extern "C"
 
 namespace entry
 {
