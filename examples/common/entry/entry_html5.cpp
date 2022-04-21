@@ -120,7 +120,7 @@ namespace entry
 			fullscreenStrategy.canvasResizedCallback = canvasResizeCb;
 			fullscreenStrategy.canvasResizedCallbackUserData = this;
 
-			EMSCRIPTEN_CHECK(emscripten_request_fullscreen_strategy(canvas, false, &fullscreenStrategy) );
+			// EMSCRIPTEN_CHECK(emscripten_request_fullscreen_strategy(canvas, false, &fullscreenStrategy) );
 
 			EMSCRIPTEN_CHECK(emscripten_set_focus_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_focusin_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
