@@ -6805,7 +6805,7 @@ namespace bgfx { namespace gl
 				// GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER.
 				GL_CHECK(glDrawBuffer(GL_NONE) );
 			}
-			else if (g_caps.limits.maxFBAttachments > 0)
+			else if (g_caps.limits.maxFBAttachments > 0 && s_renderGL->m_gles3)
 			{
 				GL_CHECK(glDrawBuffers(colorIdx, buffers) );
 			}
