@@ -862,7 +862,7 @@ namespace bgfx { namespace gl
 		{ "OES_packed_depth_stencil",                 false,                             true  },
 		{ "OES_read_format",                          false,                             true  },
 		{ "OES_rgb8_rgba8",                           false,                             true  },
-		{ "OES_standard_derivatives",                 false,                             true  },
+		{ "OES_standard_derivatives",                 true,                              true  },
 		{ "OES_texture_3D",                           false,                             true  },
 		{ "OES_texture_float",                        false,                             true  },
 		{ "OES_texture_float_linear",                 false,                             true  },
