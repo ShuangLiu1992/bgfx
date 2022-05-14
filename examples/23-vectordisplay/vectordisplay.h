@@ -36,7 +36,7 @@ public:
 
 	void init(bool _originBottomLeft, float _texelHalf);
 
-	void setup(uint16_t _width, uint16_t _height, uint8_t _view = 2);
+	void setup(uint16_t _width, uint16_t _height);
 	void resize(uint16_t _width, uint16_t _height);
 	void teardown();
 
@@ -109,7 +109,6 @@ public:
 	// Get the size from a vector display.
 	void getSize(float* _outWidth, float* _outHeight);
 
-protected:
 	void screenSpaceQuad(float _textureWidth, float _textureHeight, float _width = 1.0f, float _height = 1.0f);
 
 	struct PendingPoint
