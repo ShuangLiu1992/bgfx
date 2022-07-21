@@ -400,6 +400,12 @@ static void print_resources(const Compiler &compiler, const char *tag, const Sma
 			fprintf(stderr, " writeonly");
 		if (mask.get(DecorationNonWritable))
 			fprintf(stderr, " readonly");
+		if (mask.get(DecorationRestrict))
+			fprintf(stderr, " restrict");
+		if (mask.get(DecorationCoherent))
+			fprintf(stderr, " coherent");
+		if (mask.get(DecorationVolatile))
+			fprintf(stderr, " volatile");
 		if (is_sized_block)
 		{
 			fprintf(stderr, " (BlockSize : %u bytes)", block_size);
@@ -902,7 +908,7 @@ static void print_help_common()
 	// clang-format off
 	fprintf(stderr, "\nCommon options:\n"
 	                "\t[--entry name]:\n\t\tUse a specific entry point. By default, the first entry point in the module is used.\n"
-	                "\t[--stage <stage (vert, frag, geom, tesc, tese comp)>]:\n\t\tForces use of a certain shader stage.\n"
+	                "\t[--stage <stage (vert, frag, geom, tesc, tese, comp)>]:\n\t\tForces use of a certain shader stage.\n"
 	                "\t\tCan disambiguate the entry point if more than one entry point exists with same name, but different stage.\n"
 	                "\t[--emit-line-directives]:\n\t\tIf SPIR-V has OpLine directives, aim to emit those accurately in output code as well.\n"
 	                "\t[--rename-entry-point <old> <new> <stage>]:\n\t\tRenames an entry point from what is declared in SPIR-V to code output.\n"
@@ -1064,6 +1070,18 @@ static ExecutionModel stage_to_execution_model(const std::string &stage)
 		return ExecutionModelTessellationEvaluation;
 	else if (stage == "geom")
 		return ExecutionModelGeometry;
+	else if (stage == "rgen")
+		return ExecutionModelRayGenerationKHR;
+	else if (stage == "rint")
+		return ExecutionModelIntersectionKHR;
+	else if (stage == "rahit")
+		return ExecutionModelAnyHitKHR;
+	else if (stage == "rchit")
+		return ExecutionModelClosestHitKHR;
+	else if (stage == "rmiss")
+		return ExecutionModelMissKHR;
+	else if (stage == "rcall")
+		return ExecutionModelCallableKHR;
 	else
 		SPIRV_CROSS_THROW("Invalid stage.");
 }

@@ -13,9 +13,9 @@ Getting Source
 
 ::
 
-    git clone git://github.com/bkaradzic/bx.git
-    git clone git://github.com/bkaradzic/bimg.git
-    git clone git://github.com/bkaradzic/bgfx.git
+    git clone https://github.com/bkaradzic/bx.git
+    git clone https://github.com/bkaradzic/bimg.git
+    git clone https://github.com/bkaradzic/bgfx.git
 
 Quick Start
 -----------
@@ -52,7 +52,7 @@ Download AndroidNDK:
 
  - https://developer.android.com/tools/sdk/ndk/index.html
 
-Set following enironment variables:
+Set following environment variables:
 
 ::
 
@@ -110,8 +110,7 @@ Configuration is ``<platform>-<debug/release>[32/64]``. For example:
 
 ::
 
-    linux-release32, nacl-debug64, nacl-arm-debug, pnacl-release,
-    android-release, etc.
+    linux-release64, wasm-debug, wasm-release, osx-debug, osx-release, android-arm64-release, etc.
 
 Windows
 ~~~~~~~

@@ -84,8 +84,8 @@ Languages:
  * [Swift language API bindings](https://github.com/stuartcarnie/SwiftBGFX)
  * [Zig language API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/zig)
 
-Who is using it? [#madewithbgfx](https://twitter.com/search?q=%23madewithbgfx&f=live)
--------------------------------------------------------------------------------------
+Who is using it? [#madewithbgfx](https://twitter.com/search?q=%23madewithbgfx&src=typed_query&f=live)
+-----------------------------------------------------------------------------------------------------
 
 ## Airmech
 
@@ -497,6 +497,13 @@ https://klei.com/games/griftlands
 target="_blank"><img src="http://img.youtube.com/vi/ufl14_Ne5Lg/0.jpg" 
 alt="Griftlands"
 width="640" height="480" border="0" /></a>
+
+## HARFANG 3D
+
+[HARFANG® 3D](https://www.harfang3d.com) is a **BGFX-powered** 3D visualization framework for C++, Python, Go, and Lua.
+It comes with a 3D editor, HARFANG Studio.
+
+![HARFANG-STUDIO](https://raw.githubusercontent.com/harfang3d/image-storage/main/portfolio/3.2.2/harfang-studio-cyber-city.png)
 
 [License (BSD 2-clause)](https://bkaradzic.github.io/bgfx/license.html)
 -----------------------------------------------------------------------
