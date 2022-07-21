@@ -139,9 +139,8 @@ namespace bgfx { namespace gl
 		const char* canvas = (const char*) _nwh;
 		int error = 0;
 
-		//for (int version = 2; version >= 1; --version)
+		for (int version = 2; version >= 1; --version)
 		{
-			int version = 1;
 			s_attrs.majorVersion = version;
 			EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_create_context(canvas, &s_attrs);
 
