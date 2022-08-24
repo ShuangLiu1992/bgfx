@@ -35,6 +35,7 @@ BX_PRAGMA_DIAGNOSTIC_POP()
 #include <bx/readerwriter.h>
 #include <tinystl/allocator.h>
 #include <tinystl/string.h>
+#include <memory>
 
 namespace entry
 {
@@ -1078,27 +1079,27 @@ namespace entry
 		bool m_fullscreen;
 	};
 
-	static Context s_ctx;
+	std::shared_ptr<Context> s_ctx;
 
 	const Event* poll()
 	{
-		return s_ctx.m_eventQueue.poll();
+		return s_ctx->m_eventQueue.poll();
 	}
 
 	const Event* poll(WindowHandle _handle)
 	{
-		return s_ctx.m_eventQueue.poll(_handle);
+		return s_ctx->m_eventQueue.poll(_handle);
 	}
 
 	void release(const Event* _event)
 	{
-		s_ctx.m_eventQueue.release(_event);
+		s_ctx->m_eventQueue.release(_event);
 	}
 
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags, const char* _title)
 	{
-		bx::MutexScope scope(s_ctx.m_lock);
-		WindowHandle handle = { s_ctx.m_windowAlloc.alloc() };
+		bx::MutexScope scope(s_ctx->m_lock);
+		WindowHandle handle = { s_ctx->m_windowAlloc.alloc() };
 
 		if (UINT16_MAX != handle.idx)
 		{
@@ -1122,8 +1123,8 @@ namespace entry
 		{
 			sdlPostEvent(SDL_USER_WINDOW_DESTROY, _handle);
 
-			bx::MutexScope scope(s_ctx.m_lock);
-			s_ctx.m_windowAlloc.free(_handle.idx);
+			bx::MutexScope scope(s_ctx->m_lock);
+			s_ctx->m_windowAlloc.free(_handle.idx);
 		}
 	}
 
@@ -1195,7 +1196,10 @@ namespace entry
 int bgfx_main(int _argc, char** _argv)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	s_ctx = std::make_shared<Context>();
+	int ret = s_ctx->run(_argc, _argv);
+	s_ctx.reset();
+	return ret;
 }
 
 #endif // ENTRY_CONFIG_USE_SDL
