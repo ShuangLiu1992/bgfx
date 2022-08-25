@@ -527,6 +527,7 @@ namespace entry
 
 			SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
+#if BGFX_ENABLE_GAME_CONTROLLER
 			bx::FileReaderI* reader = NULL;
 			while (NULL == reader)
 			{
@@ -549,6 +550,7 @@ namespace entry
 
 				BX_FREE(allocator, data);
 			}
+#endif
 
 			bool exit = false;
 			SDL_Event event;
