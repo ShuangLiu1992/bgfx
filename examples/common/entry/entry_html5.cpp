@@ -97,7 +97,7 @@ namespace entry
 			}
 		}
 
-		int32_t run(int _argc, const char* const* _argv)
+		int32_t run(int _argc, const char* const* _argv, void* callback_data, std::function<int(void*)> callback_func)
 		{
 			static const char* canvas = "#canvas";
 
@@ -136,7 +136,7 @@ namespace entry
 			pd.nwh = (void*)canvas;
 			bgfx::setPlatformData(pd);
 
-			int32_t result = main(_argc, _argv);
+			int32_t result = callback_func(callback_data);
 			return result;
 		}
 
@@ -154,6 +154,8 @@ namespace entry
 		int32_t m_mx;
 		int32_t m_my;
 		int32_t m_scroll;
+		void* callback_data;
+		std::function<int(void*)> callback_func;
 	};
 
 	static Context s_ctx;
@@ -459,10 +461,10 @@ namespace entry
 	}
 }
 
-int main(int _argc, const char* const* _argv)
+int bgfx_main(int _argc, char** _argv, void* callback_data, std::function<int(void*)> callback_func)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	return s_ctx.run(_argc, _argv, callback_data, callback_func);
 }
 
 #endif // BX_PLATFORM_EMSCRIPTEN
