@@ -10,20 +10,14 @@
 #include <bx/thread.h>
 #include <bx/file.h>
 
+#include <unistd.h>
+
 #include <android/input.h>
 #include <android/log.h>
 #include <android/looper.h>
 #include <android/window.h>
 #include <android_native_app_glue.h>
 #include <android/native_window.h>
-
-extern "C"
-{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <android_native_app_glue.c>
-#pragma GCC diagnostic pop
-} // extern "C"
 
 namespace entry
 {
@@ -554,13 +548,9 @@ namespace entry
 	{
 		BX_UNUSED(_thread);
 
-		int32_t result = chdir("/sdcard/bgfx/examples/runtime");
-		BX_ASSERT(0 == result, "Failed to chdir to dir. android.permission.WRITE_EXTERNAL_STORAGE?", errno);
-
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
-		result = main(self->m_argc, self->m_argv);
 //		PostMessage(s_ctx.m_hwnd, WM_QUIT, 0, 0);
-		return result;
+		return main(self->m_argc, self->m_argv);
 	}
 
 } // namespace entry

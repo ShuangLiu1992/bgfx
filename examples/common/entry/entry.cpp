@@ -18,7 +18,7 @@
 #include "cmd.h"
 #include "input.h"
 
-extern "C" int32_t _main_(int32_t _argc, char** _argv);
+// extern "C" int32_t _main_(int32_t _argc, char** _argv);
 
 namespace entry
 {
@@ -592,88 +592,6 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		BX_FREE(g_allocator, apps);
 	}
 
-	int main(int _argc, const char* const* _argv)
-	{
-		//DBG(BX_COMPILER_NAME " / " BX_CPU_NAME " / " BX_ARCH_NAME " / " BX_PLATFORM_NAME);
-
-		s_fileReader = BX_NEW(g_allocator, FileReader);
-		s_fileWriter = BX_NEW(g_allocator, FileWriter);
-
-		cmdInit();
-		cmdAdd("mouselock", cmdMouseLock);
-		cmdAdd("graphics",  cmdGraphics );
-		cmdAdd("exit",      cmdExit     );
-		cmdAdd("app",       cmdApp      );
-
-		inputInit();
-		inputAddBindings("bindings", s_bindings);
-
-		bx::FilePath fp(_argv[0]);
-		char title[bx::kMaxFilePath];
-		bx::strCopy(title, BX_COUNTOF(title), fp.getBaseName() );
-
-		entry::setWindowTitle(kDefaultWindowHandle, title);
-		setWindowSize(kDefaultWindowHandle, ENTRY_DEFAULT_WIDTH, ENTRY_DEFAULT_HEIGHT);
-
-		sortApps();
-
-		const char* find = "";
-		if (1 < _argc)
-		{
-			find = _argv[_argc-1];
-		}
-
-restart:
-		AppI* selected = NULL;
-
-		for (AppI* app = getFirstApp(); NULL != app; app = app->getNext() )
-		{
-			if (NULL == selected
-			&&  !bx::strFindI(app->getName(), find).isEmpty() )
-			{
-				selected = app;
-			}
-#if 0
-			DBG("%c %s, %s"
-				, app == selected ? '>' : ' '
-				, app->getName()
-				, app->getDescription()
-				);
-#endif // 0
-		}
-
-		int32_t result = bx::kExitSuccess;
-		s_restartArgs[0] = '\0';
-		if (0 == s_numApps)
-		{
-			result = ::_main_(_argc, (char**)_argv);
-		}
-		else
-		{
-			result = runApp(getCurrentApp(selected), _argc, _argv);
-		}
-
-		if (0 != bx::strLen(s_restartArgs) )
-		{
-			find = s_restartArgs;
-			goto restart;
-		}
-
-		setCurrentDir("");
-
-		inputRemoveBindings("bindings");
-		inputShutdown();
-
-		cmdShutdown();
-
-		BX_DELETE(g_allocator, s_fileReader);
-		s_fileReader = NULL;
-
-		BX_DELETE(g_allocator, s_fileWriter);
-		s_fileWriter = NULL;
-
-		return result;
-	}
 
 	WindowState s_window[ENTRY_CONFIG_MAX_WINDOWS];
 

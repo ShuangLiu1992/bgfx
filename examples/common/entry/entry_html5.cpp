@@ -95,13 +95,18 @@ namespace entry
 			}
 		}
 
-		int32_t run(int _argc, const char* const* _argv)
+		int32_t run(int _argc, const char* const* _argv, void* callback_data, std::function<int(void*)> callback_func)
 		{
 			static const char* canvas = "#canvas";
 
 			EMSCRIPTEN_CHECK(emscripten_set_mousedown_callback(canvas, this, true, mouseCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_mouseup_callback(canvas, this, true, mouseCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_mousemove_callback(canvas, this, true, mouseCb) );
+
+			EMSCRIPTEN_CHECK(emscripten_set_touchstart_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchend_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchmove_callback(canvas, nullptr, true, touchCb));
+			EMSCRIPTEN_CHECK(emscripten_set_touchcancel_callback(canvas, nullptr, true, touchCb));
 
 			EMSCRIPTEN_CHECK(emscripten_set_wheel_callback(canvas, this, true, wheelCb) );
 
@@ -118,17 +123,19 @@ namespace entry
 			fullscreenStrategy.canvasResizedCallback = canvasResizeCb;
 			fullscreenStrategy.canvasResizedCallbackUserData = this;
 
-			EMSCRIPTEN_CHECK(emscripten_request_fullscreen_strategy(canvas, false, &fullscreenStrategy) );
+			// EMSCRIPTEN_CHECK(emscripten_request_fullscreen_strategy(canvas, false, &fullscreenStrategy) );
 
 			EMSCRIPTEN_CHECK(emscripten_set_focus_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_focusin_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_focusout_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 
-			int32_t result = main(_argc, _argv);
+
+			int32_t result = callback_func(callback_data);
 			return result;
 		}
 
 		static EM_BOOL mouseCb(int eventType, const EmscriptenMouseEvent* event, void* userData);
+		static EM_BOOL touchCb(int eventType, const EmscriptenTouchEvent* event, void* userData);
 		static EM_BOOL wheelCb(int eventType, const EmscriptenWheelEvent* event, void* userData);
 		static EM_BOOL keyCb(int eventType, const EmscriptenKeyboardEvent* event, void* userData);
 		static EM_BOOL resizeCb(int eventType, const EmscriptenUiEvent* event, void* userData);
@@ -141,6 +148,8 @@ namespace entry
 		int32_t m_mx;
 		int32_t m_my;
 		int32_t m_scroll;
+		void* callback_data;
+		std::function<int(void*)> callback_func;
 	};
 
 	static Context s_ctx;
@@ -177,6 +186,38 @@ namespace entry
 						, (_eventType != EMSCRIPTEN_EVENT_MOUSEUP)
 						);
 					return true;
+			}
+		}
+
+		return false;
+	}
+
+	EM_BOOL Context::touchCb(int32_t _eventType, const EmscriptenTouchEvent* _event, void* _userData)
+	{
+		if (_event)
+		{
+			switch (_eventType)
+			{
+			case EMSCRIPTEN_EVENT_TOUCHMOVE:
+				entry::s_ctx.m_mx = _event->touches[0].targetX;
+				entry::s_ctx.m_my = _event->touches[0].targetY;
+				entry::s_ctx.m_eventQueue.postMouseEvent(entry::s_defaultWindow, entry::s_ctx.m_mx, entry::s_ctx.m_my, entry::s_ctx.m_scroll);
+				return true;
+
+			case EMSCRIPTEN_EVENT_TOUCHSTART:
+			case EMSCRIPTEN_EVENT_TOUCHEND:
+			case EMSCRIPTEN_EVENT_TOUCHCANCEL:
+				entry::s_ctx.m_mx = _event->touches[0].targetX;
+				entry::s_ctx.m_my = _event->touches[0].targetY;
+				entry::s_ctx.m_eventQueue.postMouseEvent(
+					entry::s_defaultWindow
+					, entry::s_ctx.m_mx
+					, entry::s_ctx.m_my
+					, entry::s_ctx.m_scroll
+					, entry::MouseButton::Left
+					, (_eventType != EMSCRIPTEN_EVENT_TOUCHEND)
+				);
+				return true;
 			}
 		}
 
@@ -429,10 +470,10 @@ namespace entry
 	}
 }
 
-int main(int _argc, const char* const* _argv)
+int bgfx_main(int _argc, char** _argv, void* callback_data, std::function<int(void*)> callback_func)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	return s_ctx.run(_argc, _argv, callback_data, callback_func);
 }
 
 #endif // BX_PLATFORM_EMSCRIPTEN

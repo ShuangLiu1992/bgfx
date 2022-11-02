@@ -63,7 +63,7 @@ void VectorDisplay::init(bool _originBottomLeft, float _texelHalf)
 }
 
 
-void VectorDisplay::setup(uint16_t _width, uint16_t _height, uint8_t _view)
+void VectorDisplay::setup(uint16_t _width, uint16_t _height)
 {
 	PosColorUvVertex::init();
 
@@ -87,8 +87,6 @@ void VectorDisplay::setup(uint16_t _width, uint16_t _height, uint8_t _view)
 
 	setDecaySteps(DEFAULT_DECAY_STEPS);
 
-	m_view = _view;
-
 	m_drawToScreenShader = loadProgram("vs_vectordisplay_fb", "fs_vectordisplay_fb");
 	m_blurShader         = loadProgram("vs_vectordisplay_fb", "fs_vectordisplay_blur");
 	m_blitShader         = loadProgram("vs_vectordisplay_fb", "fs_vectordisplay_blit");
@@ -97,8 +95,6 @@ void VectorDisplay::setup(uint16_t _width, uint16_t _height, uint8_t _view)
 	s_texColor = bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
 
 	genLinetex();
-
-	bgfx::setViewClear(_view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
 
 	setupResDependent();
 }

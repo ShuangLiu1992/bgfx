@@ -360,11 +360,11 @@ struct OcornutImguiContext
 //			config.MergeGlyphCenterV = true;
 
 			const ImWchar* ranges = io.Fonts->GetGlyphRangesCyrillic();
-			m_font[ImGui::Font::Regular] = io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf,     sizeof(s_robotoRegularTtf),     _fontSize,      &config, ranges);
-			m_font[ImGui::Font::Mono   ] = io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoMonoRegularTtf, sizeof(s_robotoMonoRegularTtf), _fontSize-3.0f, &config, ranges);
+			m_font[0] = io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf,     sizeof(s_robotoRegularTtf),     _fontSize,      &config, ranges);
+			m_font[1] = io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoMonoRegularTtf, sizeof(s_robotoMonoRegularTtf), _fontSize-3.0f, &config, ranges);
 
 			config.MergeMode = true;
-			config.DstFont   = m_font[ImGui::Font::Regular];
+			config.DstFont   = m_font[0];
 
 			for (uint32_t ii = 0; ii < BX_COUNTOF(s_fontRangeMerge); ++ii)
 			{
@@ -390,13 +390,10 @@ struct OcornutImguiContext
 			, 0
 			, bgfx::copy(data, width*height*4)
 			);
-
-		ImGui::InitDockContext();
 	}
 
 	void destroy()
 	{
-		ImGui::ShutdownDockContext();
 		ImGui::DestroyContext(m_imgui);
 
 		bgfx::destroy(s_tex);
@@ -475,8 +472,6 @@ struct OcornutImguiContext
 #endif // USE_ENTRY
 
 		ImGui::NewFrame();
-
-		ImGuizmo::BeginFrame();
 	}
 
 	void endFrame()
@@ -493,7 +488,7 @@ struct OcornutImguiContext
 	bgfx::TextureHandle m_texture;
 	bgfx::UniformHandle s_tex;
 	bgfx::UniformHandle u_imageLodEnabled;
-	ImFont* m_font[ImGui::Font::Count];
+	ImFont* m_font[2];
 	int64_t m_last;
 	int32_t m_lastScroll;
 	bgfx::ViewId m_viewId;
@@ -535,29 +530,6 @@ void imguiEndFrame()
 {
 	s_ctx.endFrame();
 }
-
-namespace ImGui
-{
-	void PushFont(Font::Enum _font)
-	{
-		PushFont(s_ctx.m_font[_font]);
-	}
-
-	void PushEnabled(bool _enabled)
-	{
-		extern void PushItemFlag(int option, bool enabled);
-		PushItemFlag(ImGuiItemFlags_Disabled, !_enabled);
-		PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * (_enabled ? 1.0f : 0.5f) );
-	}
-
-	void PopEnabled()
-	{
-		extern void PopItemFlag();
-		PopItemFlag();
-		PopStyleVar();
-	}
-
-} // namespace ImGui
 
 BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4505); // error C4505: '' : unreferenced local function has been removed
 BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wunused-function"); // warning: 'int rect_width_compare(const void*, const void*)' defined but not used

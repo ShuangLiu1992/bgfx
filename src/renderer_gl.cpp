@@ -888,7 +888,7 @@ namespace bgfx { namespace gl
 		{ "OES_packed_depth_stencil",                 false,                             true  },
 		{ "OES_read_format",                          false,                             true  },
 		{ "OES_rgb8_rgba8",                           false,                             true  },
-		{ "OES_standard_derivatives",                 false,                             true  },
+		{ "OES_standard_derivatives",                 true,                              true  },
 		{ "OES_texture_3D",                           false,                             true  },
 		{ "OES_texture_float",                        false,                             true  },
 		{ "OES_texture_float_linear",                 false,                             true  },
@@ -7065,7 +7065,7 @@ namespace bgfx { namespace gl
 				// GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER.
 				GL_CHECK(glDrawBuffer(GL_NONE) );
 			}
-			else if (g_caps.limits.maxFBAttachments > 0)
+			else if (g_caps.limits.maxFBAttachments > 0 && s_renderGL->m_gles3)
 			{
 				GL_CHECK(glDrawBuffers(colorIdx, buffers) );
 			}
