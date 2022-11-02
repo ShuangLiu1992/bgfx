@@ -1154,14 +1154,14 @@ namespace entry
 
 	void* getNativeWindowHandle(WindowHandle _handle)
 	{
-		return sdlNativeWindowHandle(s_ctx.m_window[_handle.idx]);
+		return sdlNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
 	void* getNativeDisplayHandle()
 	{
 		SDL_SysWMinfo wmi;
 		SDL_VERSION(&wmi.version);
-		if (!SDL_GetWindowWMInfo(s_ctx.m_window[0], &wmi) )
+		if (!SDL_GetWindowWMInfo(s_ctx->m_window[0], &wmi) )
 		{
 			return NULL;
 		}
