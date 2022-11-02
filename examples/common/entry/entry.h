@@ -34,14 +34,20 @@ namespace bx { struct FileReaderI; struct FileWriterI; struct AllocatorI; }
 	_app s_ ## _app ## App(__VA_ARGS__)
 #endif // ENTRY_CONFIG_IMPLEMENT_MAIN
 
+///
+#define ENTRY_HANDLE(_name)                                                \
+	struct _name { uint16_t idx; };                                        \
+	inline bool isValid(_name _handle) { return UINT16_MAX != _handle.idx; }
+
 namespace entry
 {
-	struct WindowHandle  { uint16_t idx; };
-	inline bool isValid(WindowHandle _handle)  { return UINT16_MAX != _handle.idx; }
+	ENTRY_HANDLE(WindowHandle);
+	ENTRY_HANDLE(GamepadHandle);
 
-	struct GamepadHandle { uint16_t idx; };
-	inline bool isValid(GamepadHandle _handle) { return UINT16_MAX != _handle.idx; }
+	///
+	constexpr WindowHandle kDefaultWindowHandle = { 0 };
 
+	///
 	struct MouseButton
 	{
 		enum Enum
@@ -55,6 +61,7 @@ namespace entry
 		};
 	};
 
+	///
 	struct GamepadAxis
 	{
 		enum Enum
@@ -70,6 +77,7 @@ namespace entry
 		};
 	};
 
+	///
 	struct Modifier
 	{
 		enum Enum
@@ -86,6 +94,7 @@ namespace entry
 		};
 	};
 
+	///
 	struct Key
 	{
 		enum Enum
@@ -197,6 +206,7 @@ namespace entry
 		};
 	};
 
+	///
 	struct Suspend
 	{
 		enum Enum
@@ -210,8 +220,10 @@ namespace entry
 		};
 	};
 
+	///
 	const char* getName(Key::Enum _key);
 
+	///
 	struct MouseState
 	{
 		MouseState()
@@ -231,6 +243,7 @@ namespace entry
 		uint8_t m_buttons[entry::MouseButton::Count];
 	};
 
+	///
 	struct GamepadState
 	{
 		GamepadState()
@@ -241,22 +254,52 @@ namespace entry
 		int32_t m_axis[entry::GamepadAxis::Count];
 	};
 
+	///
 	bool processEvents(uint32_t& _width, uint32_t& _height, uint32_t& _debug, uint32_t& _reset, MouseState* _mouse = NULL);
 
+	///
 	bx::FileReaderI* getFileReader();
+
+	///
 	bx::FileWriterI* getFileWriter();
+
+	///
 	bx::AllocatorI*  getAllocator();
 
+	///
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags = ENTRY_WINDOW_FLAG_NONE, const char* _title = "");
+
+	///
 	void destroyWindow(WindowHandle _handle);
+
+	///
 	void setWindowPos(WindowHandle _handle, int32_t _x, int32_t _y);
+
+	///
 	void setWindowSize(WindowHandle _handle, uint32_t _width, uint32_t _height);
+
+	///
 	void setWindowTitle(WindowHandle _handle, const char* _title);
+
+	///
 	void setWindowFlags(WindowHandle _handle, uint32_t _flags, bool _enabled);
+
+	///
 	void toggleFullscreen(WindowHandle _handle);
+
+	///
 	void setMouseLock(WindowHandle _handle, bool _lock);
+
+	///
+	void* getNativeWindowHandle(WindowHandle _handle);
+
+	///
+	void* getNativeDisplayHandle();
+
+	///
 	void setCurrentDir(const char* _dir);
 
+	///
 	struct WindowState
 	{
 		WindowState()
@@ -275,8 +318,10 @@ namespace entry
 		bx::FilePath m_dropFile;
 	};
 
+	///
 	bool processWindowEvents(WindowState& _state, uint32_t& _debug, uint32_t& _reset);
 
+	///
 	class BX_NO_VTABLE AppI
 	{
 	public:
@@ -307,12 +352,8 @@ namespace entry
 		///
 		AppI* getNext();
 
-		AppI* m_next;
-
 	private:
-		const char* m_name;
-		const char* m_description;
-		const char* m_url;
+		BX_ALIGN_DECL(16, uintptr_t) m_internal[4];
 	};
 
 	///
