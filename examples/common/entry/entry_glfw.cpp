@@ -566,7 +566,7 @@ namespace entry
 
 					case GLFW_WINDOW_MAXIMIZE:
 						{
-							GLFWwindow* window = m_windows[msg->m_handle.idx];
+							GLFWwindow* window = m_window[msg->m_handle.idx];
 							glfwMaximizeWindow(window);
 						}
 						break;
@@ -879,7 +879,7 @@ namespace entry
 
 	void* getNativeWindowHandle(WindowHandle _handle)
 	{
-		return glfwNativeWindowHandle(s_ctx.m_window[_handle.idx]);
+		return glfwNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
 	void* getNativeDisplayHandle()
