@@ -5,6 +5,8 @@
 
 #include "entry_p.h"
 
+#include <functional>
+
 #if ENTRY_CONFIG_USE_SDL
 
 #if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
@@ -274,6 +276,8 @@ namespace entry
 	{
 		int m_argc;
 		char** m_argv;
+		void* callback_data;
+		std::function<int(void*)> callback_func;
 
 		static int32_t threadFunc(bx::Thread* _thread, void* _userData);
 	};
@@ -458,10 +462,12 @@ namespace entry
 			initTranslateGamepadAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, GamepadAxis::RightZ);
 		}
 
-		int run(int _argc, char** _argv)
+		int run(int _argc, char** _argv, void* callback_data, std::function<int(void*)> callback_func)
 		{
 			m_mte.m_argc = _argc;
 			m_mte.m_argv = _argv;
+			m_mte.callback_data = callback_data;
+			m_mte.callback_func = callback_func;
 
 			SDL_Init(0
 				| SDL_INIT_GAMECONTROLLER
@@ -1139,7 +1145,7 @@ namespace entry
 		BX_UNUSED(_thread);
 
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
-		int32_t result = main(self->m_argc, self->m_argv);
+		int32_t result = self->callback_func(self->callback_data);
 
 		SDL_Event event;
 		SDL_QuitEvent& qev = event.quit;
@@ -1150,10 +1156,10 @@ namespace entry
 
 } // namespace entry
 
-int main(int _argc, char** _argv)
+int bgfx_main(int _argc, char** _argv, void* callback_data, std::function<int(void*)> callback_func)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	return s_ctx.run(_argc, _argv, callback_data, callback_func);
 }
 
 #endif // ENTRY_CONFIG_USE_SDL
