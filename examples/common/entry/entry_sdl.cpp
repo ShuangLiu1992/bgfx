@@ -9,6 +9,8 @@
 
 #if ENTRY_CONFIG_USE_SDL
 
+#include <memory>
+
 #if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
 #	if ENTRY_CONFIG_USE_WAYLAND
 #		include <wayland-egl.h>
@@ -1022,27 +1024,27 @@ namespace entry
 		bool m_fullscreen;
 	};
 
-	static Context s_ctx;
+	static std::shared_ptr<Context> s_ctx;
 
 	const Event* poll()
 	{
-		return s_ctx.m_eventQueue.poll();
+		return s_ctx->m_eventQueue.poll();
 	}
 
 	const Event* poll(WindowHandle _handle)
 	{
-		return s_ctx.m_eventQueue.poll(_handle);
+		return s_ctx->m_eventQueue.poll(_handle);
 	}
 
 	void release(const Event* _event)
 	{
-		s_ctx.m_eventQueue.release(_event);
+		s_ctx->m_eventQueue.release(_event);
 	}
 
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags, const char* _title)
 	{
-		bx::MutexScope scope(s_ctx.m_lock);
-		WindowHandle handle = { s_ctx.m_windowAlloc.alloc() };
+		bx::MutexScope scope(s_ctx->m_lock);
+		WindowHandle handle = { s_ctx->m_windowAlloc.alloc() };
 
 		if (UINT16_MAX != handle.idx)
 		{
@@ -1066,8 +1068,8 @@ namespace entry
 		{
 			sdlPostEvent(SDL_USER_WINDOW_DESTROY, _handle);
 
-			bx::MutexScope scope(s_ctx.m_lock);
-			s_ctx.m_windowAlloc.free(_handle.idx);
+			bx::MutexScope scope(s_ctx->m_lock);
+			s_ctx->m_windowAlloc.free(_handle.idx);
 		}
 	}
 
@@ -1117,14 +1119,14 @@ namespace entry
 
 	void* getNativeWindowHandle(WindowHandle _handle)
 	{
-		return sdlNativeWindowHandle(s_ctx.m_window[_handle.idx]);
+		return sdlNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
 	void* getNativeDisplayHandle()
 	{
 		SDL_SysWMinfo wmi;
 		SDL_VERSION(&wmi.version);
-		if (!SDL_GetWindowWMInfo(s_ctx.m_window[0], &wmi) )
+		if (!SDL_GetWindowWMInfo(s_ctx->m_window[0], &wmi) )
 		{
 			return NULL;
 		}
@@ -1159,7 +1161,8 @@ namespace entry
 int bgfx_main(int _argc, char** _argv, void* callback_data, std::function<int(void*)> callback_func)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv, callback_data, callback_func);
+	s_ctx = std::make_shared<Context>();
+	return s_ctx->run(_argc, _argv, callback_data, callback_func);
 }
 
 #endif // ENTRY_CONFIG_USE_SDL

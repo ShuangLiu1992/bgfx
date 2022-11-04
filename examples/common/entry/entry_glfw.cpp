@@ -7,6 +7,8 @@
 
 #if ENTRY_CONFIG_USE_GLFW
 
+#include <memory>
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -669,7 +671,7 @@ namespace entry
 		double m_scrollPos;
 	};
 
-	Context s_ctx;
+	std::shared_ptr<Context> s_ctx;
 
 	void Context::keyCb(GLFWwindow* _window, int32_t _key, int32_t _scancode, int32_t _action, int32_t _mods)
 	{
@@ -678,16 +680,16 @@ namespace entry
 		{
 			return;
 		}
-		WindowHandle handle = s_ctx.findHandle(_window);
+		WindowHandle handle = s_ctx->findHandle(_window);
 		int mods = translateKeyModifiers(_mods);
 		Key::Enum key = translateKey(_key);
 		bool down = (_action == GLFW_PRESS || _action == GLFW_REPEAT);
-		s_ctx.m_eventQueue.postKeyEvent(handle, key, mods, down);
+		s_ctx->m_eventQueue.postKeyEvent(handle, key, mods, down);
 	}
 
 	void Context::charCb(GLFWwindow* _window, uint32_t _scancode)
 	{
-		WindowHandle handle = s_ctx.findHandle(_window);
+		WindowHandle handle = s_ctx->findHandle(_window);
 		uint8_t chars[4];
 		uint8_t length = encodeUTF8(chars, _scancode);
 		if (!length)
@@ -695,44 +697,44 @@ namespace entry
 			return;
 		}
 
-		s_ctx.m_eventQueue.postCharEvent(handle, length, chars);
+		s_ctx->m_eventQueue.postCharEvent(handle, length, chars);
 	}
 
 	void Context::scrollCb(GLFWwindow* _window, double _dx, double _dy)
 	{
 		BX_UNUSED(_dx);
-		WindowHandle handle = s_ctx.findHandle(_window);
+		WindowHandle handle = s_ctx->findHandle(_window);
 		double mx, my;
 		glfwGetCursorPos(_window, &mx, &my);
-		s_ctx.m_scrollPos += _dy;
-		s_ctx.m_eventQueue.postMouseEvent(handle
+		s_ctx->m_scrollPos += _dy;
+		s_ctx->m_eventQueue.postMouseEvent(handle
 			, (int32_t) mx
 			, (int32_t) my
-			, (int32_t) s_ctx.m_scrollPos
+			, (int32_t) s_ctx->m_scrollPos
 			);
 	}
 
 	void Context::cursorPosCb(GLFWwindow* _window, double _mx, double _my)
 	{
-		WindowHandle handle = s_ctx.findHandle(_window);
-		s_ctx.m_eventQueue.postMouseEvent(handle
+		WindowHandle handle = s_ctx->findHandle(_window);
+		s_ctx->m_eventQueue.postMouseEvent(handle
 			, (int32_t) _mx
 			, (int32_t) _my
-			, (int32_t) s_ctx.m_scrollPos
+			, (int32_t) s_ctx->m_scrollPos
 			);
 	}
 
 	void Context::mouseButtonCb(GLFWwindow* _window, int32_t _button, int32_t _action, int32_t _mods)
 	{
 		BX_UNUSED(_mods);
-		WindowHandle handle = s_ctx.findHandle(_window);
+		WindowHandle handle = s_ctx->findHandle(_window);
 		bool down = _action == GLFW_PRESS;
 		double mx, my;
 		glfwGetCursorPos(_window, &mx, &my);
-		s_ctx.m_eventQueue.postMouseEvent(handle
+		s_ctx->m_eventQueue.postMouseEvent(handle
 			, (int32_t) mx
 			, (int32_t) my
-			, (int32_t) s_ctx.m_scrollPos
+			, (int32_t) s_ctx->m_scrollPos
 			, translateMouseButton(_button)
 			, down
 			);
@@ -740,16 +742,16 @@ namespace entry
 
 	void Context::windowSizeCb(GLFWwindow* _window, int32_t _width, int32_t _height)
 	{
-		WindowHandle handle = s_ctx.findHandle(_window);
-		s_ctx.m_eventQueue.postSizeEvent(handle, _width, _height);
+		WindowHandle handle = s_ctx->findHandle(_window);
+		s_ctx->m_eventQueue.postSizeEvent(handle, _width, _height);
 	}
 
 	void Context::dropFileCb(GLFWwindow* _window, int32_t _count, const char** _filePaths)
 	{
-		WindowHandle handle = s_ctx.findHandle(_window);
+		WindowHandle handle = s_ctx->findHandle(_window);
 		for (int32_t ii = 0; ii < _count; ++ii)
 		{
-			s_ctx.m_eventQueue.postDropFileEvent(handle, _filePaths[ii]);
+			s_ctx->m_eventQueue.postDropFileEvent(handle, _filePaths[ii]);
 		}
 	}
 
@@ -765,29 +767,29 @@ namespace entry
 
 		if (_action == GLFW_CONNECTED)
 		{
-			s_ctx.m_gamepad[_jid].m_connected = true;
-			s_ctx.m_eventQueue.postGamepadEvent(defaultWindow, handle, true);
+			s_ctx->m_gamepad[_jid].m_connected = true;
+			s_ctx->m_eventQueue.postGamepadEvent(defaultWindow, handle, true);
 		}
 		else if (_action == GLFW_DISCONNECTED)
 		{
-			s_ctx.m_gamepad[_jid].m_connected = false;
-			s_ctx.m_eventQueue.postGamepadEvent(defaultWindow, handle, false);
+			s_ctx->m_gamepad[_jid].m_connected = false;
+			s_ctx->m_eventQueue.postGamepadEvent(defaultWindow, handle, false);
 		}
 	}
 
 	const Event* poll()
 	{
-		return s_ctx.m_eventQueue.poll();
+		return s_ctx->m_eventQueue.poll();
 	}
 
 	const Event* poll(WindowHandle _handle)
 	{
-		return s_ctx.m_eventQueue.poll(_handle);
+		return s_ctx->m_eventQueue.poll(_handle);
 	}
 
 	void release(const Event* _event)
 	{
-		s_ctx.m_eventQueue.release(_event);
+		s_ctx->m_eventQueue.release(_event);
 	}
 
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags, const char* _title)
@@ -799,8 +801,8 @@ namespace entry
 		msg->m_height = _height;
 		msg->m_flags = _flags;
 		msg->m_title = _title;
-		msg->m_handle.idx = s_ctx.m_windowAlloc.alloc();
-		s_ctx.m_msgs.push(msg);
+		msg->m_handle.idx = s_ctx->m_windowAlloc.alloc();
+		s_ctx->m_msgs.push(msg);
 		return msg->m_handle;
 	}
 
@@ -808,7 +810,7 @@ namespace entry
 	{
 		Msg* msg = new Msg(GLFW_WINDOW_DESTROY);
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void setWindowPos(WindowHandle _handle, int32_t _x, int32_t _y)
@@ -817,7 +819,7 @@ namespace entry
 		msg->m_x = _x;
 		msg->m_y = _y;
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void setWindowSize(WindowHandle _handle, uint32_t _width, uint32_t _height)
@@ -826,7 +828,7 @@ namespace entry
 		msg->m_width = _width;
 		msg->m_height = _height;
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void setWindowTitle(WindowHandle _handle, const char* _title)
@@ -834,7 +836,7 @@ namespace entry
 		Msg* msg = new Msg(GLFW_WINDOW_SET_TITLE);
 		msg->m_title = _title;
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void setWindowFlags(WindowHandle _handle, uint32_t _flags, bool _enabled)
@@ -846,7 +848,7 @@ namespace entry
 	{
 		Msg* msg = new Msg(GLFW_WINDOW_TOGGLE_FULL_SCREEN);
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void setMouseLock(WindowHandle _handle, bool _lock)
@@ -854,12 +856,12 @@ namespace entry
 		Msg* msg = new Msg(GLFW_WINDOW_MOUSE_LOCK);
 		msg->m_value = _lock;
 		msg->m_handle = _handle;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 	}
 
 	void* getNativeWindowHandle(WindowHandle _handle)
 	{
-		return glfwNativeWindowHandle(s_ctx.m_window[_handle.idx]);
+		return glfwNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
 	void* getNativeDisplayHandle()
@@ -885,7 +887,7 @@ namespace entry
 		// Destroy main window on exit...
 		Msg* msg = new Msg(GLFW_WINDOW_DESTROY);
 		msg->m_handle.idx = 0;
-		s_ctx.m_msgs.push(msg);
+		s_ctx->m_msgs.push(msg);
 
 		return result;
 	}
@@ -894,7 +896,8 @@ namespace entry
 int main(int _argc, const char* const* _argv)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	s_ctx = std::make_shared<Context>();
+	return s_ctx->run(_argc, _argv);
 }
 
 #endif // ENTRY_CONFIG_USE_GLFW
