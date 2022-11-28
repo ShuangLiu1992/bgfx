@@ -262,6 +262,7 @@ namespace entry
 		GLFW_WINDOW_SET_SIZE,
 		GLFW_WINDOW_TOGGLE_FRAME,
 		GLFW_WINDOW_TOGGLE_FULL_SCREEN,
+		GLFW_WINDOW_MAXIMIZE,
 		GLFW_WINDOW_MOUSE_LOCK,
 	};
 
@@ -595,6 +596,13 @@ namespace entry
 						}
 						break;
 
+					case GLFW_WINDOW_MAXIMIZE:
+						{
+							GLFWwindow* window = m_window[msg->m_handle.idx];
+							glfwMaximizeWindow(window);
+						}
+						break;
+
 					case GLFW_WINDOW_MOUSE_LOCK:
 						{
 							GLFWwindow* window = m_window[msg->m_handle.idx];
@@ -845,6 +853,13 @@ namespace entry
 	void toggleFullscreen(WindowHandle _handle)
 	{
 		Msg* msg = new Msg(GLFW_WINDOW_TOGGLE_FULL_SCREEN);
+		msg->m_handle = _handle;
+		s_ctx.m_msgs.push(msg);
+	}
+
+	void maximizeWindow(WindowHandle _handle)
+	{
+		Msg* msg = new Msg(GLFW_WINDOW_MAXIMIZE);
 		msg->m_handle = _handle;
 		s_ctx.m_msgs.push(msg);
 	}

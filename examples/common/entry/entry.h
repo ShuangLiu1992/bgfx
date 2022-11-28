@@ -289,6 +289,9 @@ namespace entry
 	void toggleFullscreen(WindowHandle _handle);
 
 	///
+	void maximizeWindow(WindowHandle _handle);
+
+	///
 	void setMouseLock(WindowHandle _handle, bool _lock);
 
 	///
