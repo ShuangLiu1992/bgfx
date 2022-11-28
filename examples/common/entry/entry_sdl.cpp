@@ -311,6 +311,7 @@ namespace entry
 		SDL_USER_WINDOW_SET_SIZE,
 		SDL_USER_WINDOW_TOGGLE_FRAME,
 		SDL_USER_WINDOW_TOGGLE_FULL_SCREEN,
+		SDL_USER_WINDOW_MAXIMIZE,
 		SDL_USER_WINDOW_MOUSE_LOCK,
 	};
 
@@ -938,6 +939,13 @@ namespace entry
 								}
 								break;
 
+							case SDL_USER_WINDOW_MAXIMIZE:
+								{
+									WindowHandle handle = getWindowHandle(uev);
+									SDL_MaximizeWindow(m_window[handle.idx]);
+								}
+								break;
+
 							case SDL_USER_WINDOW_MOUSE_LOCK:
 								{
 									SDL_SetRelativeMouseMode(!!uev.code ? SDL_TRUE : SDL_FALSE);
@@ -1125,6 +1133,11 @@ namespace entry
 	void toggleFullscreen(WindowHandle _handle)
 	{
 		sdlPostEvent(SDL_USER_WINDOW_TOGGLE_FULL_SCREEN, _handle);
+	}
+
+	void maximizeWindow(WindowHandle _handle)
+	{
+		sdlPostEvent(SDL_USER_WINDOW_MAXIMIZE, _handle);
 	}
 
 	void setMouseLock(WindowHandle _handle, bool _lock)
