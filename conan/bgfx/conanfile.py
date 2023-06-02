@@ -34,31 +34,27 @@ class BGFXConan(ConanFile):
             tc.variables["IS_IOS"] = True
         tc.generate()
 
-    def build(self):
-        conan.tools.files.rmdir(self, f"{self.build_folder}/bgfx/3rdparty/dear-imgui")
-        conan.tools.files.rmdir(self, f"{self.build_folder}/bimg/3rdparty/astc-encoder")
+    def package(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
         cmake.install()
-
-    def package(self):
         dst_dir = self.package_folder
-        src_dir = self.folders.base_source
-        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/include"), os.path.join(dst_dir, "include"))
-        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/src"), os.path.join(dst_dir, "include/bgfx"))
-        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/3rdparty"),
+        src_dir = os.path.join(self.folders.base_source, "..", "..")
+        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "include"), os.path.join(dst_dir, "include"))
+        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "src"), os.path.join(dst_dir, "include/bgfx"))
+        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "3rdparty"),
                                os.path.join(dst_dir, "include/bgfx"))
-        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/examples/common"),
+        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "examples/common"),
                                os.path.join(dst_dir, "include/bgfx"))
-        conan.tools.files.copy(self, "*.inl", os.path.join(src_dir, "bgfx/examples/common"),
+        conan.tools.files.copy(self, "*.inl", os.path.join(src_dir, "examples/common"),
                                os.path.join(dst_dir, "include/bgfx"))
-        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/examples"),
-                               os.path.join("include/bgfx/examples"))
-        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "bgfx/examples"), os.path.join(dst_dir, "shaders"))
-        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "bgfx/examples"), os.path.join(dst_dir, "shaders"))
-        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "bgfx/src"), os.path.join(dst_dir, "shaders"))
-        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "bgfx/src"), os.path.join(dst_dir, "shaders"))
+        conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "examples"),
+                               os.path.join("include/examples"))
+        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "examples"), os.path.join(dst_dir, "shaders"))
+        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "examples"), os.path.join(dst_dir, "shaders"))
+        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "src"), os.path.join(dst_dir, "shaders"))
+        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "src"), os.path.join(dst_dir, "shaders"))
 
     def package_info(self):
         self.cpp_info.includedirs = ['include', 'include/bgfx', 'include/bgfx/fcpp', 'include/bgfx/webgpu/include']
