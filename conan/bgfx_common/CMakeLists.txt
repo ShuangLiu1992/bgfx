@@ -16,6 +16,8 @@ find_package(bx REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC bx::bx)
 find_package(bgfx REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC bgfx::bgfx)
+find_package(meshoptimizer REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC meshoptimizer::meshoptimizer)
 
 target_sources(${PROJECT_NAME} PRIVATE
         ../../examples/common/bgfx_utils.cpp
