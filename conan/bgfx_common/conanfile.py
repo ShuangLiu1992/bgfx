@@ -28,11 +28,6 @@ class BGFXCOMMONConan(ConanFile):
         if self.options.backend == "sdl":
             self.requires(f"sdl/{self.version}")
 
-    def source(self):
-        conan.tools.files.get(self,
-                              "https://github.com/ShuangLiu1992/bgfx/archive/a77e4bf1c4f5599f7dc44f9946ae4637f516b75d.tar.gz",
-                              md5="afe0fa3dfa1f9f2b5ef9bdf6679df855", strip_root=True, destination="bgfx")
-
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["BGFX_BACKEND"] = self.options.backend
@@ -46,20 +41,6 @@ class BGFXCOMMONConan(ConanFile):
         tc.generate()
 
     def build(self):
-        if self.settings.os == "Emscripten":
-            conan.tools.files.replace_in_file(self,
-                                              f"{self.folders.base_build}/bgfx/3rdparty/meshoptimizer/src/vertexfilter.cpp",
-                                              '#define SIMD_SSE',
-                                              '')
-            conan.tools.files.replace_in_file(self,
-                                              f"{self.folders.base_build}/bgfx/3rdparty/meshoptimizer/src/vertexcodec.cpp",
-                                              '#define SIMD_SSE',
-                                              '')
-            conan.tools.files.replace_in_file(self,
-                                              f"{self.folders.base_build}/bgfx/examples/common/entry/entry_html5.cpp",
-                                              'EMSCRIPTEN_CHECK(emscripten_request_fullscreen_strategy(canvas, false, &fullscreenStrategy) );',
-                                              '')
-
         if self.settings.os in ["Emscripten", "Android", "iOS"]:
             shaderc = self.conf.get("user.bgfx_shaderc.shaderc")
             for shader in ["fs_debugdraw_fill", "fs_debugdraw_fill_lit", "fs_debugdraw_fill_texture",
