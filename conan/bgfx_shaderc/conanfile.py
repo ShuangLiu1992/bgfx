@@ -30,17 +30,7 @@ class BGFXSHADERCConan(ConanFile):
         tc.variables["glsl_optimizer_INC"] = glsl_optimizer_INC
         tc.generate()
 
-    def source(self):
-        conan.tools.files.get(self,
-                              "https://github.com/ShuangLiu1992/bgfx/archive/1566847bf660a8badcbea7db5f79130d9dbc0e3a.tar.gz",
-                              md5="e6c836e031b08a319fcccd15181dd7a9", strip_root=True, destination="bgfx")
-        shutil.rmtree(os.path.join(self.source_folder, "bgfx/3rdparty/glslang"))
-        shutil.rmtree(os.path.join(self.source_folder, "bgfx/3rdparty/spirv-tools"))
-        shutil.rmtree(os.path.join(self.source_folder, "bgfx/3rdparty/spirv-headers"))
-        shutil.rmtree(os.path.join(self.source_folder, "bgfx/3rdparty/spirv-cross"))
-        shutil.rmtree(os.path.join(self.source_folder, "bgfx/3rdparty/glsl-optimizer"))
-
-    def build(self):
+    def package(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()

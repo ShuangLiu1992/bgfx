@@ -40,41 +40,38 @@ class BGFXCOMMONConan(ConanFile):
             tc.variables["IS_IOS"] = True
         tc.generate()
 
-    def build(self):
+    def package(self):
+        dst_dir = self.package_folder
+        src_dir = os.path.join(self.folders.base_source, "..", "..")
+
         if self.settings.os in ["Emscripten", "Android", "iOS"]:
             shaderc = self.conf.get("user.bgfx_shaderc.shaderc")
             for shader in ["fs_debugdraw_fill", "fs_debugdraw_fill_lit", "fs_debugdraw_fill_texture",
                            "fs_debugdraw_lines",
                            "fs_debugdraw_lines_stipple"]:
                 embed_shader.compile([shaderc,
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/{shader}.sc",
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/{shader}.bin.h",
+                                      f"{src_dir}/examples/common/debugdraw/{shader}.sc",
+                                      f"{src_dir}/examples/common/debugdraw/{shader}.bin.h",
                                       "fragment",
-                                      f"{self.build_folder}/bgfx/src/",
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/varying.def.sc",
+                                      f"{src_dir}/src/",
+                                      f"{src_dir}/examples/common/debugdraw/varying.def.sc",
                                       str(self.settings.os), str(self.settings.arch)])
             for shader in ["vs_debugdraw_fill", "vs_debugdraw_fill_lit", "vs_debugdraw_fill_lit_mesh",
                            "vs_debugdraw_fill_mesh", "vs_debugdraw_fill_texture", "vs_debugdraw_lines",
                            "vs_debugdraw_lines_stipple"]:
                 embed_shader.compile([shaderc,
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/{shader}.sc",
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/{shader}.bin.h",
+                                      f"{src_dir}/examples/common/debugdraw/{shader}.sc",
+                                      f"{src_dir}/examples/common/debugdraw/{shader}.bin.h",
                                       "vertex",
-                                      f"{self.build_folder}/bgfx/src/",
-                                      f"{self.build_folder}/bgfx/examples/common/debugdraw/varying.def.sc",
+                                      f"{src_dir}/src/",
+                                      f"{src_dir}/examples/common/debugdraw/varying.def.sc",
                                       str(self.settings.os), str(self.settings.arch)])
 
-
-        conan.tools.files.rmdir(self, f"{self.build_folder}/bgfx/3rdparty/dear-imgui")
-        conan.tools.files.rmdir(self, f"{self.build_folder}/bimg/3rdparty/astc-encoder")
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
         cmake.install()
 
-    def package(self):
-        dst_dir = self.package_folder
-        src_dir = self.folders.base_build
         conan.tools.files.copy(self, "embed_shader.cmake", src_dir, os.path.join(dst_dir, "cmake"))
         conan.tools.files.copy(self, "embed_shader.py", src_dir, os.path.join(dst_dir, "bin"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/include"), os.path.join(dst_dir, "include"))
