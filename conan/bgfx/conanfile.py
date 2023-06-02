@@ -15,18 +15,13 @@ class BGFXConan(ConanFile):
     exports_sources = "CMakeLists.txt"
 
     def requirements(self):
-        self.requires(f"bimg/{self.version}", transitive_headers=True)
-        self.requires(f"bx/{self.version}", transitive_headers=True)
-        self.requires(f"meshoptimizer/{self.version}")
+        self.requires("bimg/local", transitive_headers=True)
+        self.requires("bx/local", transitive_headers=True)
+        self.requires("meshoptimizer/local")
 
     def system_requirements(self):
         if self.settings.os == "Linux":
             Apt(self).install(["libgl1-mesa-dev", "libx11-dev", "libxrandr-dev"])
-
-    def source(self):
-        conan.tools.files.get(self,
-                              "https://github.com/ShuangLiu1992/bgfx/archive/a77e4bf1c4f5599f7dc44f9946ae4637f516b75d.tar.gz",
-                              md5="afe0fa3dfa1f9f2b5ef9bdf6679df855", strip_root=True, destination="bgfx")
 
     def generate(self):
         tc = CMakeToolchain(self)
@@ -40,16 +35,6 @@ class BGFXConan(ConanFile):
         tc.generate()
 
     def build(self):
-        if self.settings.os == "Emscripten":
-            conan.tools.files.replace_in_file(self,
-                                              f"{self.folders.base_build}/bgfx/3rdparty/meshoptimizer/src/vertexfilter.cpp",
-                                              '#define SIMD_SSE',
-                                              '')
-            conan.tools.files.replace_in_file(self,
-                                              f"{self.folders.base_build}/bgfx/3rdparty/meshoptimizer/src/vertexcodec.cpp",
-                                              '#define SIMD_SSE',
-                                              '')
-
         conan.tools.files.rmdir(self, f"{self.build_folder}/bgfx/3rdparty/dear-imgui")
         conan.tools.files.rmdir(self, f"{self.build_folder}/bimg/3rdparty/astc-encoder")
         cmake = CMake(self)
@@ -59,7 +44,7 @@ class BGFXConan(ConanFile):
 
     def package(self):
         dst_dir = self.package_folder
-        src_dir = self.folders.base_build
+        src_dir = self.folders.base_source
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/include"), os.path.join(dst_dir, "include"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/src"), os.path.join(dst_dir, "include/bgfx"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "bgfx/3rdparty"),

@@ -10,44 +10,44 @@ endif()
 add_library(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-         ./bgfx/src/bgfx.cpp
-         ./bgfx/src/debug_renderdoc.cpp
-         ./bgfx/src/dxgi.cpp
-         ./bgfx/src/glcontext_egl.cpp
-         ./bgfx/src/glcontext_glx.cpp
-         ./bgfx/src/glcontext_wgl.cpp
-         ./bgfx/src/glcontext_html5.cpp
-         ./bgfx/src/nvapi.cpp
-         ./bgfx/src/renderer_agc.cpp
-         ./bgfx/src/renderer_d3d11.cpp
-         ./bgfx/src/renderer_d3d12.cpp
-         ./bgfx/src/renderer_d3d9.cpp
-         ./bgfx/src/renderer_gl.cpp
-         ./bgfx/src/renderer_gnm.cpp
-         ./bgfx/src/renderer_noop.cpp
-         ./bgfx/src/renderer_nvn.cpp
-         ./bgfx/src/renderer_vk.cpp
-         ./bgfx/src/renderer_webgpu.cpp
-         ./bgfx/src/shader.cpp
-         ./bgfx/src/shader_dx9bc.cpp
-         ./bgfx/src/shader_dxbc.cpp
-         ./bgfx/src/shader_spirv.cpp
-         ./bgfx/src/topology.cpp
-         ./bgfx/src/vertexlayout.cpp
+         ../../src/bgfx.cpp
+         ../../src/debug_renderdoc.cpp
+         ../../src/dxgi.cpp
+         ../../src/glcontext_egl.cpp
+         ../../src/glcontext_glx.cpp
+         ../../src/glcontext_wgl.cpp
+         ../../src/glcontext_html5.cpp
+         ../../src/nvapi.cpp
+         ../../src/renderer_agc.cpp
+         ../../src/renderer_d3d11.cpp
+         ../../src/renderer_d3d12.cpp
+         ../../src/renderer_d3d9.cpp
+         ../../src/renderer_gl.cpp
+         ../../src/renderer_gnm.cpp
+         ../../src/renderer_noop.cpp
+         ../../src/renderer_nvn.cpp
+         ../../src/renderer_vk.cpp
+         ../../src/renderer_webgpu.cpp
+         ../../src/shader.cpp
+         ../../src/shader_dx9bc.cpp
+         ../../src/shader_dxbc.cpp
+         ../../src/shader_spirv.cpp
+         ../../src/topology.cpp
+         ../../src/vertexlayout.cpp
         )
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     target_sources(${PROJECT_NAME} PRIVATE
-            ./bgfx/src/glcontext_eagl.mm
-            ./bgfx/src/glcontext_nsgl.mm
-            ./bgfx/src/renderer_mtl.mm
+            ../../src/glcontext_eagl.mm
+            ../../src/glcontext_nsgl.mm
+            ../../src/renderer_mtl.mm
             )
-    set_property(SOURCE ./bgfx/src/renderer_vk.cpp PROPERTY LANGUAGE OBJCXX)
+    set_property(SOURCE ../../src/renderer_vk.cpp PROPERTY LANGUAGE OBJCXX)
 endif ()
 
-target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/include)
-target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/examples/common)
-target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/3rdparty)
-target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/3rdparty/khronos/)
+target_include_directories(${PROJECT_NAME} PUBLIC ../../include)
+target_include_directories(${PROJECT_NAME} PUBLIC ../../examples/common)
+target_include_directories(${PROJECT_NAME} PUBLIC ../../3rdparty)
+target_include_directories(${PROJECT_NAME} PUBLIC ../../3rdparty/khronos/)
 
 find_package(meshoptimizer REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC meshoptimizer::meshoptimizer)
@@ -57,7 +57,7 @@ find_package(bimg REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC bimg::bimg)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/3rdparty/directx-headers/include/directx)
+    target_include_directories(${PROJECT_NAME} PUBLIC ../../3rdparty/directx-headers/include/directx)
 endif ()
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     target_compile_definitions(${PROJECT_NAME} PUBLIC -DBGFX_CONFIG_RENDERER_OPENGL_MIN_VERSION=21)
@@ -89,8 +89,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(OpenGL REQUIRED)
     target_link_libraries(${PROJECT_NAME} PUBLIC OpenGL::GL)
     target_include_directories(${PROJECT_NAME} PUBLIC ./bx/include/compat/linux)
-    target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/3rdparty/directx-headers/include/wsl/stubs)
-    target_include_directories(${PROJECT_NAME} PUBLIC ./bgfx/3rdparty/directx-headers/include/directx)
+    target_include_directories(${PROJECT_NAME} PUBLIC ../../3rdparty/directx-headers/include/wsl/stubs)
+    target_include_directories(${PROJECT_NAME} PUBLIC ../../3rdparty/directx-headers/include/directx)
 endif ()
 
 install(TARGETS ${PROJECT_NAME}
