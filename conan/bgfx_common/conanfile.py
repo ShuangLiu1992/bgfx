@@ -1,7 +1,6 @@
 from conan import ConanFile
 import conan.tools.files
 from conan.tools.cmake import CMake, CMakeToolchain
-from conan.tools.files import copy
 import embed_shader
 import os
 
@@ -20,7 +19,7 @@ class BGFXCOMMONConan(ConanFile):
         self.tool_requires(f"bgfx_shaderc/{self.version}@")
 
     def export_sources(self):
-        copy(self, "*", os.path.join(self.recipe_folder, "..", ".."), self.export_sources_folder)
+        conan.tools.files.copy(self, "*", os.path.join(self.recipe_folder, "..", ".."), self.export_sources_folder)
 
     def requirements(self):
         self.requires(f"imgui/{self.version}")
