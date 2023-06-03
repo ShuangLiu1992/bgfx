@@ -20,6 +20,9 @@ class BGFXSHADERCConan(ConanFile):
         self.requires(f"spirv_cross/{self.version}@")
         self.requires(f"glsl_optimizer/{self.version}@")
 
+    def export_sources(self):
+        conan.tools.files.copy(self, "*", os.path.join(self.recipe_folder, "..", ".."), self.export_sources_folder)
+
     def generate(self):
         glslang_INC = os.path.join(VirtualBuildEnv(self).vars()["glslang_DIR"], "include", "glslang").replace(os.sep,
                                                                                                               '/')
@@ -30,7 +33,7 @@ class BGFXSHADERCConan(ConanFile):
         tc.variables["glsl_optimizer_INC"] = glsl_optimizer_INC
         tc.generate()
 
-    def package(self):
+    def build(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()

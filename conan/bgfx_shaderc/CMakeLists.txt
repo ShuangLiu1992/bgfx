@@ -13,18 +13,18 @@ if ((${CONAN_SETTINGS_OS} MATCHES "Windows"))
     target_compile_options(${PROJECT_NAME} PUBLIC /wd4291)
 endif ()
 target_sources(${PROJECT_NAME} PRIVATE
-        ../../3rdparty/fcpp/cpp6.c
-        ../../3rdparty/fcpp/cpp5.c
-        ../../3rdparty/fcpp/cpp4.c
-        ../../3rdparty/fcpp/cpp3.c
-        ../../3rdparty/fcpp/cpp2.c
-        ../../3rdparty/fcpp/cpp1.c
-        ../../tools/shaderc/shaderc_spirv.cpp
-        ../../tools/shaderc/shaderc_pssl.cpp
-        ../../tools/shaderc/shaderc_metal.cpp
-        ../../tools/shaderc/shaderc_hlsl.cpp
-        ../../tools/shaderc/shaderc_glsl.cpp
-        ../../tools/shaderc/shaderc.cpp
+        ./3rdparty/fcpp/cpp6.c
+        ./3rdparty/fcpp/cpp5.c
+        ./3rdparty/fcpp/cpp4.c
+        ./3rdparty/fcpp/cpp3.c
+        ./3rdparty/fcpp/cpp2.c
+        ./3rdparty/fcpp/cpp1.c
+        ./tools/shaderc/shaderc_spirv.cpp
+        ./tools/shaderc/shaderc_pssl.cpp
+        ./tools/shaderc/shaderc_metal.cpp
+        ./tools/shaderc/shaderc_hlsl.cpp
+        ./tools/shaderc/shaderc_glsl.cpp
+        ./tools/shaderc/shaderc.cpp
         )
 
 find_package(bx REQUIRED)

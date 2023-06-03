@@ -19,6 +19,9 @@ class BGFXConan(ConanFile):
         self.requires("bx/local", transitive_headers=True)
         self.requires("meshoptimizer/local")
 
+    def export_sources(self):
+        conan.tools.files.copy(self, "*", os.path.join(self.recipe_folder, "..", ".."), self.export_sources_folder)
+
     def system_requirements(self):
         if self.settings.os == "Linux":
             Apt(self).install(["libgl1-mesa-dev", "libx11-dev", "libxrandr-dev"])
@@ -33,14 +36,16 @@ class BGFXConan(ConanFile):
         if self.settings.os == "iOS":
             tc.variables["IS_IOS"] = True
         tc.generate()
-
-    def package(self):
+    
+    def build(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
         cmake.install()
+
+    def package(self):
         dst_dir = self.package_folder
-        src_dir = os.path.join(self.folders.base_source, "..", "..")
+        src_dir = os.path.join(self.build_folder)
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "include"), os.path.join(dst_dir, "include"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "src"), os.path.join(dst_dir, "include/bgfx"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "3rdparty"),
