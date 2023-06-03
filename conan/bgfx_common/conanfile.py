@@ -23,7 +23,7 @@ class BGFXCOMMONConan(ConanFile):
         copy(self, "*", os.path.join(self.recipe_folder, "..", ".."), self.export_sources_folder)
 
     def requirements(self):
-        self.requires(f"imgui/tag_docking_3.27")
+        self.requires(f"imgui/{self.version}")
         self.requires(f"bimg/{self.version}")
         self.requires(f"bgfx/{self.version}")
         self.requires(f"meshoptimizer/{self.version}")
