@@ -44,28 +44,27 @@ class BGFXCOMMONConan(ConanFile):
         tc.generate()
 
     def build(self):
-        if self.settings.os in ["Emscripten", "Android", "iOS"]:
-            shaderc = self.conf.get("user.bgfx_shaderc.shaderc")
-            for shader in ["fs_debugdraw_fill", "fs_debugdraw_fill_lit", "fs_debugdraw_fill_texture",
-                           "fs_debugdraw_lines",
-                           "fs_debugdraw_lines_stipple"]:
-                embed_shader.compile([shaderc,
-                                      f"./examples/common/debugdraw/{shader}.sc",
-                                      f"./examples/common/debugdraw/{shader}.bin.h",
-                                      "fragment",
-                                      f"./src/",
-                                      f"./examples/common/debugdraw/varying.def.sc",
-                                      str(self.settings.os), str(self.settings.arch)])
-            for shader in ["vs_debugdraw_fill", "vs_debugdraw_fill_lit", "vs_debugdraw_fill_lit_mesh",
-                           "vs_debugdraw_fill_mesh", "vs_debugdraw_fill_texture", "vs_debugdraw_lines",
-                           "vs_debugdraw_lines_stipple"]:
-                embed_shader.compile([shaderc,
-                                      f"./examples/common/debugdraw/{shader}.sc",
-                                      f"./examples/common/debugdraw/{shader}.bin.h",
-                                      "vertex",
-                                      f"./src/",
-                                      f"./examples/common/debugdraw/varying.def.sc",
-                                      str(self.settings.os), str(self.settings.arch)])
+        shaderc = self.conf.get("user.bgfx_shaderc.shaderc")
+        for shader in ["fs_debugdraw_fill", "fs_debugdraw_fill_lit", "fs_debugdraw_fill_texture",
+                        "fs_debugdraw_lines",
+                        "fs_debugdraw_lines_stipple"]:
+            embed_shader.compile([shaderc,
+                                    f"./examples/common/debugdraw/{shader}.sc",
+                                    f"./examples/common/debugdraw/{shader}.bin.h",
+                                    "fragment",
+                                    f"./src/",
+                                    f"./examples/common/debugdraw/varying.def.sc",
+                                    str(self.settings.os), str(self.settings.arch)])
+        for shader in ["vs_debugdraw_fill", "vs_debugdraw_fill_lit", "vs_debugdraw_fill_lit_mesh",
+                        "vs_debugdraw_fill_mesh", "vs_debugdraw_fill_texture", "vs_debugdraw_lines",
+                        "vs_debugdraw_lines_stipple"]:
+            embed_shader.compile([shaderc,
+                                    f"./examples/common/debugdraw/{shader}.sc",
+                                    f"./examples/common/debugdraw/{shader}.bin.h",
+                                    "vertex",
+                                    f"./src/",
+                                    f"./examples/common/debugdraw/varying.def.sc",
+                                    str(self.settings.os), str(self.settings.arch)])
 
         cmake = CMake(self)
         cmake.configure()
