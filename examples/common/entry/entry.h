@@ -10,10 +10,11 @@
 #include <bx/bx.h>
 #include <bx/filepath.h>
 #include <bx/string.h>
+#include <functional>
 
 namespace bx { struct FileReaderI; struct FileWriterI; struct AllocatorI; }
 
-extern "C" int _main_(int _argc, char** _argv);
+int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func);
 
 #define ENTRY_WINDOW_FLAG_NONE         UINT32_C(0x00000000)
 #define ENTRY_WINDOW_FLAG_ASPECT_RATIO UINT32_C(0x00000001)

@@ -592,7 +592,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		BX_FREE(g_allocator, apps);
 	}
 
-	int main(int _argc, const char* const* _argv)
+	int main(int _argc, const char* const* _argv, std::function<int(int, char**)> func)
 	{
 		//DBG(BX_COMPILER_NAME " / " BX_CPU_NAME " / " BX_ARCH_NAME " / " BX_PLATFORM_NAME);
 
@@ -646,7 +646,7 @@ restart:
 		s_restartArgs[0] = '\0';
 		if (0 == s_numApps)
 		{
-			result = ::_main_(_argc, (char**)_argv);
+			result = func(_argc, (char**)_argv);
 		}
 		else
 		{
