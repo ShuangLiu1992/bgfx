@@ -680,7 +680,7 @@ namespace entry
 		double m_scrollPos;
 	};
 
-	Context s_ctx;
+	std::shared_ptr<Context> s_ctx;
 
 	void Context::keyCb(GLFWwindow* _window, int32_t _key, int32_t _scancode, int32_t _action, int32_t _mods)
 	{
@@ -909,7 +909,7 @@ namespace entry
 	}
 }
 
-int bgfx_main(int _argc, const char* const* _argv, std::function<int(int, char**)> func)
+int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func)
 {
 	using namespace entry;
 	s_ctx = std::make_shared<Context>();
