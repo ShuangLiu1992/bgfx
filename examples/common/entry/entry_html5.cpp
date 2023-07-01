@@ -95,7 +95,7 @@ namespace entry
 			}
 		}
 
-		int32_t run(int _argc, const char* const* _argv)
+		int32_t run(int _argc, const char* const* _argv, std::function<int(int, char**)> func)
 		{
 			static const char* canvas = "#canvas";
 
@@ -129,7 +129,7 @@ namespace entry
 			EMSCRIPTEN_CHECK(emscripten_set_focusin_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 			EMSCRIPTEN_CHECK(emscripten_set_focusout_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, focusCb) );
 
-			int32_t result = main(_argc, _argv);
+			int32_t result = main(_argc, _argv, func);
 			return result;
 		}
 
@@ -149,7 +149,7 @@ namespace entry
 		int32_t m_scroll;
 	};
 
-	static Context s_ctx;
+	static std::shared_ptr<Context> s_ctx;
 
 	EM_BOOL Context::mouseCb(int32_t _eventType, const EmscriptenMouseEvent* _event, void* _userData)
 	{
@@ -160,25 +160,25 @@ namespace entry
 			switch (_eventType)
 			{
 				case EMSCRIPTEN_EVENT_MOUSEMOVE:
-					s_ctx.m_mx = _event->targetX;
-					s_ctx.m_my = _event->targetY;
-					s_ctx.m_eventQueue.postMouseEvent(kDefaultWindowHandle, s_ctx.m_mx, s_ctx.m_my, s_ctx.m_scroll);
+					s_ctx->m_mx = _event->targetX;
+					s_ctx->m_my = _event->targetY;
+					s_ctx->m_eventQueue.postMouseEvent(kDefaultWindowHandle, s_ctx->m_mx, s_ctx->m_my, s_ctx->m_scroll);
 					return true;
 
 				case EMSCRIPTEN_EVENT_MOUSEDOWN:
 				case EMSCRIPTEN_EVENT_MOUSEUP:
 				case EMSCRIPTEN_EVENT_DBLCLICK:
-					s_ctx.m_mx = _event->targetX;
-					s_ctx.m_my = _event->targetY;
+					s_ctx->m_mx = _event->targetX;
+					s_ctx->m_my = _event->targetY;
 					MouseButton::Enum mb = _event->button == 2
 						? MouseButton::Right  : ( (_event->button == 1)
 						? MouseButton::Middle : MouseButton::Left)
 						;
-					s_ctx.m_eventQueue.postMouseEvent(
+					s_ctx->m_eventQueue.postMouseEvent(
 						  kDefaultWindowHandle
-						, s_ctx.m_mx
-						, s_ctx.m_my
-						, s_ctx.m_scroll
+						, s_ctx->m_mx
+						, s_ctx->m_my
+						, s_ctx->m_scroll
 						, mb
 						, (_eventType != EMSCRIPTEN_EVENT_MOUSEUP)
 						);
@@ -196,21 +196,21 @@ namespace entry
 			switch (_eventType)
 			{
 			case EMSCRIPTEN_EVENT_TOUCHMOVE:
-				entry::s_ctx.m_mx = _event->touches[0].targetX;
-				entry::s_ctx.m_my = _event->touches[0].targetY;
-				entry::s_ctx.m_eventQueue.postMouseEvent(kDefaultWindowHandle, entry::s_ctx.m_mx, entry::s_ctx.m_my, entry::s_ctx.m_scroll);
+				entry::s_ctx->m_mx = _event->touches[0].targetX;
+				entry::s_ctx->m_my = _event->touches[0].targetY;
+				entry::s_ctx->m_eventQueue.postMouseEvent(kDefaultWindowHandle, entry::s_ctx->m_mx, entry::s_ctx->m_my, entry::s_ctx->m_scroll);
 				return true;
 
 			case EMSCRIPTEN_EVENT_TOUCHSTART:
 			case EMSCRIPTEN_EVENT_TOUCHEND:
 			case EMSCRIPTEN_EVENT_TOUCHCANCEL:
-				entry::s_ctx.m_mx = _event->touches[0].targetX;
-				entry::s_ctx.m_my = _event->touches[0].targetY;
-				entry::s_ctx.m_eventQueue.postMouseEvent(
+				entry::s_ctx->m_mx = _event->touches[0].targetX;
+				entry::s_ctx->m_my = _event->touches[0].targetY;
+				entry::s_ctx->m_eventQueue.postMouseEvent(
 					kDefaultWindowHandle
-					, entry::s_ctx.m_mx
-					, entry::s_ctx.m_my
-					, entry::s_ctx.m_scroll
+					, entry::s_ctx->m_mx
+					, entry::s_ctx->m_my
+					, entry::s_ctx->m_scroll
 					, entry::MouseButton::Left
 					, (_eventType != EMSCRIPTEN_EVENT_TOUCHEND)
 				);
@@ -231,10 +231,10 @@ namespace entry
 			{
 				case EMSCRIPTEN_EVENT_WHEEL:
 				{
-					s_ctx.m_scrollf += _event->deltaY;
+					s_ctx->m_scrollf += _event->deltaY;
 
-					s_ctx.m_scroll = (int32_t)s_ctx.m_scrollf;
-					s_ctx.m_eventQueue.postMouseEvent(kDefaultWindowHandle, s_ctx.m_mx, s_ctx.m_my, s_ctx.m_scroll);
+					s_ctx->m_scroll = (int32_t)s_ctx->m_scrollf;
+					s_ctx->m_eventQueue.postMouseEvent(kDefaultWindowHandle, s_ctx->m_mx, s_ctx->m_my, s_ctx->m_scroll);
 					return true;
 				}
 			}
@@ -329,19 +329,19 @@ namespace entry
 					case EMSCRIPTEN_EVENT_KEYDOWN:
 						if (key == Key::KeyQ && (modifiers & Modifier::RightMeta) )
 						{
-							s_ctx.m_eventQueue.postExitEvent();
+							s_ctx->m_eventQueue.postExitEvent();
 						}
 						else
 						{
 							enum { ShiftMask = Modifier::LeftShift|Modifier::RightShift };
-							s_ctx.m_eventQueue.postCharEvent(kDefaultWindowHandle, 1, pressedChar);
-							s_ctx.m_eventQueue.postKeyEvent(kDefaultWindowHandle, key, modifiers, true);
+							s_ctx->m_eventQueue.postCharEvent(kDefaultWindowHandle, 1, pressedChar);
+							s_ctx->m_eventQueue.postKeyEvent(kDefaultWindowHandle, key, modifiers, true);
 							return true;
 						}
 						break;
 
 					case EMSCRIPTEN_EVENT_KEYUP:
-						s_ctx.m_eventQueue.postKeyEvent(kDefaultWindowHandle, key, modifiers, false);
+						s_ctx->m_eventQueue.postKeyEvent(kDefaultWindowHandle, key, modifiers, false);
 						return true;
 				}
 			}
@@ -371,19 +371,19 @@ namespace entry
 			switch (_eventType)
 			{
 				case EMSCRIPTEN_EVENT_BLUR:
-					s_ctx.m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::DidSuspend);
+					s_ctx->m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::DidSuspend);
 					return true;
 
 				case EMSCRIPTEN_EVENT_FOCUS:
-					s_ctx.m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::DidResume);
+					s_ctx->m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::DidResume);
 					return true;
 
 				case EMSCRIPTEN_EVENT_FOCUSIN:
-					s_ctx.m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::WillResume);
+					s_ctx->m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::WillResume);
 					return true;
 
 				case EMSCRIPTEN_EVENT_FOCUSOUT:
-					s_ctx.m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::WillSuspend);
+					s_ctx->m_eventQueue.postSuspendEvent(kDefaultWindowHandle, Suspend::WillSuspend);
 					return true;
 			}
 		}
@@ -394,18 +394,18 @@ namespace entry
 	const Event* poll()
 	{
 		entry_emscripten_yield();
-		return s_ctx.m_eventQueue.poll();
+		return s_ctx->m_eventQueue.poll();
 	}
 
 	const Event* poll(WindowHandle _handle)
 	{
 		entry_emscripten_yield();
-		return s_ctx.m_eventQueue.poll(_handle);
+		return s_ctx->m_eventQueue.poll(_handle);
 	}
 
 	void release(const Event* _event)
 	{
-		s_ctx.m_eventQueue.release(_event);
+		s_ctx->m_eventQueue.release(_event);
 	}
 
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags, const char* _title)
@@ -472,10 +472,11 @@ namespace entry
 	}
 }
 
-int main(int _argc, const char* const* _argv)
+int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func)
 {
 	using namespace entry;
-	return s_ctx.run(_argc, _argv);
+	s_ctx = std::make_shared<Context>();
+	return s_ctx->run(_argc, _argv, func);
 }
 
 #endif // BX_PLATFORM_EMSCRIPTEN
