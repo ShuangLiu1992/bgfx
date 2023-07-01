@@ -14,7 +14,12 @@
 
 namespace bx { struct FileReaderI; struct FileWriterI; struct AllocatorI; }
 
-int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func);
+#if ENTRY_CONFIG_USE_NATIVE && BX_PLATFORM_ANDROID
+#include <android_native_app_glue.h>
+	int bgfx_main(android_app* _app, std::function<int(int, char**)> func);
+#else
+	int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func);
+#endif
 
 #define ENTRY_WINDOW_FLAG_NONE         UINT32_C(0x00000000)
 #define ENTRY_WINDOW_FLAG_ASPECT_RATIO UINT32_C(0x00000001)
