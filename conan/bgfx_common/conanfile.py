@@ -12,8 +12,8 @@ class BGFXCOMMONConan(ConanFile):
     default_options = {"shared": False, "fPIC": True, "backend": None}
 
     generators = "CMakeDeps"
-    exports_sources = "CMakeLists.txt", "embed_shader.py", "embed_shader.cmake",
-    exports = "embed_shader.py", "embed_shader.cmake",
+    exports_sources = "CMakeLists.txt", "embed_shader.py",
+    exports = "embed_shader.py",
 
     def build_requirements(self):
         self.tool_requires(f"bgfx_shaderc/{self.version}@")
@@ -46,25 +46,25 @@ class BGFXCOMMONConan(ConanFile):
     def build(self):
         shaderc = self.conf.get("user.bgfx_shaderc.shaderc")
         for shader in ["fs_debugdraw_fill", "fs_debugdraw_fill_lit", "fs_debugdraw_fill_texture",
-                        "fs_debugdraw_lines",
-                        "fs_debugdraw_lines_stipple"]:
+                       "fs_debugdraw_lines",
+                       "fs_debugdraw_lines_stipple"]:
             embed_shader.compile([shaderc,
-                                    f"./examples/common/debugdraw/{shader}.sc",
-                                    f"./examples/common/debugdraw/{shader}.bin.h",
-                                    "fragment",
-                                    f"./src/",
-                                    f"./examples/common/debugdraw/varying.def.sc",
-                                    str(self.settings.os), str(self.settings.arch)])
+                                  f"./examples/common/debugdraw/{shader}.sc",
+                                  f"./examples/common/debugdraw/{shader}.bin.h",
+                                  "fragment",
+                                  f"./src/",
+                                  f"./examples/common/debugdraw/varying.def.sc",
+                                  str(self.settings.os), str(self.settings.arch)])
         for shader in ["vs_debugdraw_fill", "vs_debugdraw_fill_lit", "vs_debugdraw_fill_lit_mesh",
-                        "vs_debugdraw_fill_mesh", "vs_debugdraw_fill_texture", "vs_debugdraw_lines",
-                        "vs_debugdraw_lines_stipple"]:
+                       "vs_debugdraw_fill_mesh", "vs_debugdraw_fill_texture", "vs_debugdraw_lines",
+                       "vs_debugdraw_lines_stipple"]:
             embed_shader.compile([shaderc,
-                                    f"./examples/common/debugdraw/{shader}.sc",
-                                    f"./examples/common/debugdraw/{shader}.bin.h",
-                                    "vertex",
-                                    f"./src/",
-                                    f"./examples/common/debugdraw/varying.def.sc",
-                                    str(self.settings.os), str(self.settings.arch)])
+                                  f"./examples/common/debugdraw/{shader}.sc",
+                                  f"./examples/common/debugdraw/{shader}.bin.h",
+                                  "vertex",
+                                  f"./src/",
+                                  f"./examples/common/debugdraw/varying.def.sc",
+                                  str(self.settings.os), str(self.settings.arch)])
 
         cmake = CMake(self)
         cmake.configure()
@@ -89,11 +89,12 @@ class BGFXCOMMONConan(ConanFile):
         conan.tools.files.copy(self, "*.inl", os.path.join(src_dir, "bx/include"), os.path.join(dst_dir, "include"))
         conan.tools.files.copy(self, "*.h", os.path.join(src_dir, "examples"),
                                os.path.join(dst_dir, "include/bgfx/examples"))
-        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "examples"), os.path.join(dst_dir, "include/shaders"))
-        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "examples"), os.path.join(dst_dir, "include/shaders"))
+        conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "examples"),
+                               os.path.join(dst_dir, "include/shaders"))
+        conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "examples"),
+                               os.path.join(dst_dir, "include/shaders"))
         conan.tools.files.copy(self, "*.sc", os.path.join(src_dir, "src"), os.path.join(dst_dir, "include/shaders"))
         conan.tools.files.copy(self, "*.sh", os.path.join(src_dir, "src"), os.path.join(dst_dir, "include/shaders"))
 
     def package_info(self):
-        self.cpp_info.set_property("cmake_build_modules", [os.path.join("cmake", "embed_shader.cmake")])
         self.cpp_info.libs = conan.tools.files.collect_libs(self)
