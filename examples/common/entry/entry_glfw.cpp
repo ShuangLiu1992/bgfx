@@ -913,7 +913,9 @@ int bgfx_main(int _argc, char** _argv, std::function<int(int, char**)> func)
 {
 	using namespace entry;
 	s_ctx = std::make_shared<Context>();
-	return s_ctx->run(_argc, _argv, func);
+	int ret = s_ctx->run(_argc, _argv, func);
+	s_ctx.reset();
+	return ret;
 }
 
 #endif // ENTRY_CONFIG_USE_GLFW
