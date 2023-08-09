@@ -552,7 +552,7 @@ namespace entry
 	int32_t MainThreadEntry::threadFunc(bx::Thread* _thread, void* _userData)
 	{
 		BX_UNUSED(_thread);
-
+		
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
 		result = main(self->m_argc, self->m_argv);
 		return result;
