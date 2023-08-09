@@ -17,14 +17,6 @@
 #include <android_native_app_glue.h>
 #include <android/native_window.h>
 
-extern "C"
-{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <android_native_app_glue.c>
-#pragma GCC diagnostic pop
-} // extern "C"
-
 namespace entry
 {
 	struct GamepadRemap
@@ -73,6 +65,7 @@ namespace entry
 	{
 		int m_argc;
 		const char* const* m_argv;
+		std::function<int(int, char**)> m_func;
 
 		static int32_t threadFunc(bx::Thread* _thread, void* _userData);
 	};
@@ -171,7 +164,7 @@ namespace entry
 			m_deadzone[GamepadAxis::RightZ] = 30;
 		}
 
-		void run(android_app* _app)
+		void run(android_app* _app, std::function<int(int, char**)> func)
 		{
 			m_app = _app;
 			m_app->userData = (void*)this;
@@ -186,6 +179,7 @@ namespace entry
 			static const char* const argv[] = { "android.so" };
 			m_mte.m_argc = BX_COUNTOF(argv);
 			m_mte.m_argv = argv;
+			m_mte.m_func = func;
 
 			while (0 == m_app->destroyRequested)
 			{
@@ -476,21 +470,21 @@ namespace entry
 		int32_t m_deadzone[GamepadAxis::Count];
 	};
 
-	static Context s_ctx;
+	static std::shared_ptr<Context> s_ctx;
 
 	const Event* poll()
 	{
-		return s_ctx.m_eventQueue.poll();
+		return s_ctx->m_eventQueue.poll();
 	}
 
 	const Event* poll(WindowHandle _handle)
 	{
-		return s_ctx.m_eventQueue.poll(_handle);
+		return s_ctx->m_eventQueue.poll(_handle);
 	}
 
 	void release(const Event* _event)
 	{
-		s_ctx.m_eventQueue.release(_event);
+		s_ctx->m_eventQueue.release(_event);
 	}
 
 	WindowHandle createWindow(int32_t _x, int32_t _y, uint32_t _width, uint32_t _height, uint32_t _flags, const char* _title)
@@ -530,6 +524,11 @@ namespace entry
 		BX_UNUSED(_handle);
 	}
 
+	void maximizeWindow(WindowHandle _handle)
+	{
+		BX_UNUSED(_handle);
+	}
+
 	void setMouseLock(WindowHandle _handle, bool _lock)
 	{
 		BX_UNUSED(_handle, _lock);
@@ -539,7 +538,7 @@ namespace entry
 	{
 		if (kDefaultWindowHandle.idx == _handle.idx)
 		{
-			return s_ctx.m_window;
+			return s_ctx->m_window;
 		}
 
 		return NULL;
@@ -554,23 +553,17 @@ namespace entry
 	{
 		BX_UNUSED(_thread);
 
-		int32_t result = chdir("/sdcard/bgfx/examples/runtime");
-		BX_ASSERT(0 == result
-			, "Failed to chdir to directory (errno: %d, android.permission.WRITE_EXTERNAL_STORAGE?)."
-			, errno
-			);
-
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
-		result = main(self->m_argc, self->m_argv);
+		int32_t result = main(self->m_argc, self->m_argv, self->m_func);
 		return result;
 	}
 
 } // namespace entry
 
-extern "C" void android_main(android_app* _app)
-{
+int bgfx_main(android_app* _app, std::function<int(int, char**)> func) {
 	using namespace entry;
-	s_ctx.run(_app);
+	s_ctx = std::make_shared<Context>();
+	s_ctx->run(_app, func);
 }
 
 #endif // ENTRY_CONFIG_USE_NATIVE && BX_PLATFORM_ANDROID
