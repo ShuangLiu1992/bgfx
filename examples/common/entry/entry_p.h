@@ -72,7 +72,7 @@ namespace entry
 		static void static_deallocate(void* _ptr, size_t /*_bytes*/);
 	};
 
-	int main(int _argc, const char* const* _argv);
+	int main(int _argc, const char* const* _argv, std::function<int(int, char**)> func);
 
 	char keyToAscii(Key::Enum _key, uint8_t _modifiers);
 
