@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2022 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -16,6 +16,10 @@
 #	import <QuartzCore/QuartzCore.h>
 #	import <Metal/Metal.h>
 #endif // BX_PLATFORM_OSX
+
+#if WL_EGL_PLATFORM
+#	include <wayland-egl-backend.h>
+#endif
 
 namespace bgfx { namespace vk
 {
@@ -210,7 +214,7 @@ VK_IMPORT_DEVICE
 		{ VK_FORMAT_R8_SNORM,                  VK_FORMAT_R8_SNORM,                 VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R8S
 		{ VK_FORMAT_R16_UNORM,                 VK_FORMAT_R16_UNORM,                VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16
 		{ VK_FORMAT_R16_SINT,                  VK_FORMAT_R16_SINT,                 VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16I
-		{ VK_FORMAT_R16_UNORM,                 VK_FORMAT_R16_UNORM,                VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16U
+		{ VK_FORMAT_R16_UINT,                  VK_FORMAT_R16_UINT,                 VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16U
 		{ VK_FORMAT_R16_SFLOAT,                VK_FORMAT_R16_SFLOAT,               VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16F
 		{ VK_FORMAT_R16_SNORM,                 VK_FORMAT_R16_SNORM,                VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R16S
 		{ VK_FORMAT_R32_SINT,                  VK_FORMAT_R32_SINT,                 VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED,                { $_, $_, $_, $_ } }, // R32I
@@ -527,16 +531,22 @@ VK_IMPORT_DEVICE
 	};
 	BX_STATIC_ASSERT(VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE == BX_COUNTOF(s_allocScopeName)-1);
 
+	constexpr size_t kMinAlignment = 8;
+
 	static void* VKAPI_PTR allocationFunction(void* _userData, size_t _size, size_t _alignment, VkSystemAllocationScope _allocationScope)
 	{
-		BX_UNUSED(_userData, _allocationScope);
-		return bx::alignedAlloc(g_allocator, _size, _alignment, s_allocScopeName[_allocationScope]);
+		BX_UNUSED(_userData);
+		return bx::alignedAlloc(g_allocator, _size, bx::max(kMinAlignment, _alignment), bx::Location(s_allocScopeName[_allocationScope], 0) );
 	}
 
 	static void* VKAPI_PTR reallocationFunction(void* _userData, void* _original, size_t _size, size_t _alignment, VkSystemAllocationScope _allocationScope)
 	{
-		BX_UNUSED(_userData, _allocationScope);
-		return bx::alignedRealloc(g_allocator, _original, _size, _alignment, s_allocScopeName[_allocationScope]);
+		BX_UNUSED(_userData);
+		if (_size == 0) {
+			bx::alignedFree(g_allocator, _original, 0);
+			return NULL;
+		}
+		return bx::alignedRealloc(g_allocator, _original, _size, bx::max(kMinAlignment, _alignment), bx::Location(s_allocScopeName[_allocationScope], 0) );
 	}
 
 	static void VKAPI_PTR freeFunction(void* _userData, void* _memory)
@@ -548,7 +558,7 @@ VK_IMPORT_DEVICE
 			return;
 		}
 
-		bx::alignedFree(g_allocator, _memory, 8);
+		bx::alignedFree(g_allocator, _memory, 0);
 	}
 
 	static void VKAPI_PTR internalAllocationNotification(void* _userData, size_t _size, VkInternalAllocationType _allocationType, VkSystemAllocationScope _allocationScope)
@@ -699,7 +709,7 @@ VK_IMPORT_DEVICE
 			if (VK_SUCCESS == result
 			&&  0 < numExtensionProperties)
 			{
-				VkExtensionProperties* extensionProperties = (VkExtensionProperties*)BX_ALLOC(g_allocator, numExtensionProperties * sizeof(VkExtensionProperties) );
+				VkExtensionProperties* extensionProperties = (VkExtensionProperties*)bx::alloc(g_allocator, numExtensionProperties * sizeof(VkExtensionProperties) );
 				result = enumerateExtensionProperties(_physicalDevice
 					, NULL
 					, &numExtensionProperties
@@ -728,7 +738,7 @@ VK_IMPORT_DEVICE
 					BX_UNUSED(supported);
 				}
 
-				BX_FREE(g_allocator, extensionProperties);
+				bx::free(g_allocator, extensionProperties);
 			}
 		}
 
@@ -739,7 +749,7 @@ VK_IMPORT_DEVICE
 		if (VK_SUCCESS == result
 		&&  0 < numLayerProperties)
 		{
-			VkLayerProperties* layerProperties = (VkLayerProperties*)BX_ALLOC(g_allocator, numLayerProperties * sizeof(VkLayerProperties) );
+			VkLayerProperties* layerProperties = (VkLayerProperties*)bx::alloc(g_allocator, numLayerProperties * sizeof(VkLayerProperties) );
 			result = enumerateLayerProperties(_physicalDevice, &numLayerProperties, layerProperties);
 
 			char indent = VK_NULL_HANDLE == _physicalDevice ? '\0' : '\t';
@@ -774,7 +784,7 @@ VK_IMPORT_DEVICE
 				if (VK_SUCCESS == result
 				&&  0 < numExtensionProperties)
 				{
-					VkExtensionProperties* extensionProperties = (VkExtensionProperties*)BX_ALLOC(g_allocator, numExtensionProperties * sizeof(VkExtensionProperties) );
+					VkExtensionProperties* extensionProperties = (VkExtensionProperties*)bx::alloc(g_allocator, numExtensionProperties * sizeof(VkExtensionProperties) );
 					result = enumerateExtensionProperties(_physicalDevice
 						, layerProperties[layer].layerName
 						, &numExtensionProperties
@@ -800,11 +810,11 @@ VK_IMPORT_DEVICE
 						BX_UNUSED(supported);
 					}
 
-					BX_FREE(g_allocator, extensionProperties);
+					bx::free(g_allocator, extensionProperties);
 				}
 			}
 
-			BX_FREE(g_allocator, layerProperties);
+			bx::free(g_allocator, layerProperties);
 		}
 	}
 
@@ -1220,13 +1230,21 @@ VK_IMPORT
 						BX_TRACE("\t%s", layer.m_name);
 					}
 				}
+#if BX_PLATFORM_OSX
+				uint32_t numEnabledExtensions = headless ? 0 : 3;
 
+				const char* enabledExtension[Extension::Count + 3] =
+#else
 				uint32_t numEnabledExtensions = headless ? 0 : 2;
 
 				const char* enabledExtension[Extension::Count + 2] =
+#endif
 				{
 					VK_KHR_SURFACE_EXTENSION_NAME,
 					KHR_SURFACE_EXTENSION_NAME,
+#if BX_PLATFORM_OSX
+					VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+#endif
 				};
 
 				for (uint32_t ii = 0; ii < Extension::Count; ++ii)
@@ -1288,7 +1306,11 @@ VK_IMPORT
 				VkInstanceCreateInfo ici;
 				ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 				ici.pNext = NULL;
+#if BX_PLATFORM_OSX
+				ici.flags = 0 | VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#else
 				ici.flags = 0;
+#endif
 				ici.pApplicationInfo        = &appInfo;
 				ici.enabledLayerCount       = numEnabledLayers;
 				ici.ppEnabledLayerNames     = enabledLayer;
@@ -1398,6 +1420,7 @@ VK_IMPORT_INSTANCE
 				{
 					VkPhysicalDeviceProperties pdp;
 					vkGetPhysicalDeviceProperties(physicalDevices[ii], &pdp);
+
 					BX_TRACE("Physical device %d:", ii);
 					BX_TRACE("\t          Name: %s", pdp.deviceName);
 					BX_TRACE("\t   API version: %d.%d.%d"
@@ -1411,13 +1434,18 @@ VK_IMPORT_INSTANCE
 					BX_TRACE("\t      DeviceId: %x", pdp.deviceID);
 					BX_TRACE("\t          Type: %d", pdp.deviceType);
 
+					if (VK_PHYSICAL_DEVICE_TYPE_CPU == pdp.deviceType)
+					{
+						pdp.vendorID = BGFX_PCI_ID_SOFTWARE_RASTERIZER;
+					}
+
 					g_caps.gpu[ii].vendorId = uint16_t(pdp.vendorID);
 					g_caps.gpu[ii].deviceId = uint16_t(pdp.deviceID);
 					++g_caps.numGPUs;
 
 					if ( (BGFX_PCI_ID_NONE != g_caps.vendorId ||            0 != g_caps.deviceId)
 					&&   (BGFX_PCI_ID_NONE == g_caps.vendorId || pdp.vendorID == g_caps.vendorId)
-					&&   (0 == g_caps.deviceId                || pdp.deviceID == g_caps.deviceId) )
+					&&   (               0 == g_caps.deviceId || pdp.deviceID == g_caps.deviceId) )
 					{
 						if (pdp.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
 						||  pdp.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
@@ -1427,7 +1455,7 @@ VK_IMPORT_INSTANCE
 
 						physicalDeviceIdx = ii;
 					}
-					else
+					else if (UINT32_MAX == physicalDeviceIdx)
 					{
 						if (pdp.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
 						{
@@ -1542,6 +1570,7 @@ VK_IMPORT_INSTANCE
 				m_deviceFeatures.shaderClipDistance   = supportedFeatures.shaderClipDistance;
 				m_deviceFeatures.shaderCullDistance   = supportedFeatures.shaderCullDistance;
 				m_deviceFeatures.shaderResourceMinLod = supportedFeatures.shaderResourceMinLod;
+				m_deviceFeatures.geometryShader = supportedFeatures.geometryShader;
 
 				m_lineAASupport = true
 					&& s_extension[Extension::EXT_line_rasterization].m_supported
@@ -1580,6 +1609,7 @@ VK_IMPORT_INSTANCE
 					| BGFX_CAPS_VERTEX_ATTRIB_HALF
 					| BGFX_CAPS_VERTEX_ATTRIB_UINT10
 					| BGFX_CAPS_VERTEX_ID
+					| (m_deviceFeatures.geometryShader ? BGFX_CAPS_PRIMITIVE_ID : 0)
 					);
 
 				g_caps.supported |= 0
@@ -1710,7 +1740,7 @@ VK_IMPORT_INSTANCE
 					, NULL
 					);
 
-				VkQueueFamilyProperties* queueFamilyPropertices = (VkQueueFamilyProperties*)BX_ALLOC(g_allocator, queueFamilyPropertyCount * sizeof(VkQueueFamilyProperties) );
+				VkQueueFamilyProperties* queueFamilyPropertices = (VkQueueFamilyProperties*)bx::alloc(g_allocator, queueFamilyPropertyCount * sizeof(VkQueueFamilyProperties) );
 				vkGetPhysicalDeviceQueueFamilyProperties(
 					  m_physicalDevice
 					, &queueFamilyPropertyCount
@@ -1740,7 +1770,7 @@ VK_IMPORT_INSTANCE
 					}
 				}
 
-				BX_FREE(g_allocator, queueFamilyPropertices);
+				bx::free(g_allocator, queueFamilyPropertices);
 
 				if (UINT32_MAX == m_globalQueueFamily)
 				{
@@ -1767,13 +1797,21 @@ VK_IMPORT_INSTANCE
 						BX_TRACE("\t%s", layer.m_name);
 					}
 				}
+#if BX_PLATFORM_OSX
+				uint32_t numEnabledExtensions = headless ? 1 : 3;
 
+				const char* enabledExtension[Extension::Count + 3] =
+#else
 				uint32_t numEnabledExtensions = headless ? 1 : 2;
 
 				const char* enabledExtension[Extension::Count + 2] =
+#endif
 				{
 					VK_KHR_MAINTENANCE1_EXTENSION_NAME,
-					VK_KHR_SWAPCHAIN_EXTENSION_NAME
+					VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#if BX_PLATFORM_OSX
+					"VK_KHR_portability_subset",
+#endif
 				};
 
 				for (uint32_t ii = 0; ii < Extension::Count; ++ii)
@@ -2399,11 +2437,11 @@ VK_IMPORT_DEVICE
 		{
 			if (NULL != m_uniforms[_handle.idx])
 			{
-				BX_FREE(g_allocator, m_uniforms[_handle.idx]);
+				bx::free(g_allocator, m_uniforms[_handle.idx]);
 			}
 
 			const uint32_t size = bx::alignUp(g_uniformTypeSize[_type] * _num, 16);
-			void* data = BX_ALLOC(g_allocator, size);
+			void* data = bx::alloc(g_allocator, size);
 			bx::memSet(data, 0, size);
 			m_uniforms[_handle.idx] = data;
 			m_uniformReg.add(_handle, _name);
@@ -2411,7 +2449,7 @@ VK_IMPORT_DEVICE
 
 		void destroyUniform(UniformHandle _handle) override
 		{
-			BX_FREE(g_allocator, m_uniforms[_handle.idx]);
+			bx::free(g_allocator, m_uniforms[_handle.idx]);
 			m_uniforms[_handle.idx] = NULL;
 		}
 
@@ -3708,7 +3746,7 @@ VK_IMPORT_DEVICE
 
 			if (cached)
 			{
-				cachedData = BX_ALLOC(g_allocator, length);
+				cachedData = bx::alloc(g_allocator, length);
 				if (g_callback->cacheRead(hash, cachedData, length) )
 				{
 					BX_TRACE("Loading cached pipeline state (size %d).", length);
@@ -3739,7 +3777,7 @@ VK_IMPORT_DEVICE
 			{
 				if (length < dataSize)
 				{
-					cachedData = BX_REALLOC(g_allocator, cachedData, dataSize);
+					cachedData = bx::realloc(g_allocator, cachedData, dataSize);
 				}
 
 				VK_CHECK(vkGetPipelineCacheData(m_device, cache, &dataSize, cachedData) );
@@ -3751,7 +3789,7 @@ VK_IMPORT_DEVICE
 
 			if (NULL != cachedData)
 			{
-				BX_FREE(g_allocator, cachedData);
+				bx::free(g_allocator, cachedData);
 			}
 
 			return pipeline;
@@ -4032,13 +4070,13 @@ VK_IMPORT_DEVICE
 					const uint32_t dstPitch = width * dstBpp / 8;
 					const uint32_t dstSize = height * dstPitch;
 
-					void* dst = BX_ALLOC(g_allocator, dstSize);
+					void* dst = bx::alloc(g_allocator, dstSize);
 
 					bimg::imageConvert(g_allocator, dst, bimg::TextureFormat::BGRA8, src, bimg::TextureFormat::Enum(_swapChain.m_colorFormat), width, height, 1);
 
 					_func(dst, width, height, dstPitch, _userData);
 
-					BX_FREE(g_allocator, dst);
+					bx::free(g_allocator, dst);
 				}
 
 				vkUnmapMemory(m_device, _memory);
@@ -4474,7 +4512,7 @@ VK_IMPORT_DEVICE
 		s_renderVK = BX_NEW(g_allocator, RendererContextVK);
 		if (!s_renderVK->init(_init) )
 		{
-			BX_DELETE(g_allocator, s_renderVK);
+			bx::deleteObject(g_allocator, s_renderVK);
 			s_renderVK = NULL;
 		}
 		return s_renderVK;
@@ -4483,7 +4521,7 @@ VK_IMPORT_DEVICE
 	void rendererDestroy()
 	{
 		s_renderVK->shutdown();
-		BX_DELETE(g_allocator, s_renderVK);
+		bx::deleteObject(g_allocator, s_renderVK);
 		s_renderVK = NULL;
 	}
 
@@ -5940,15 +5978,15 @@ VK_DESTROY
 				uint32_t pitch;
 				uint32_t slice;
 				uint32_t size;
-				uint8_t  mipLevel;
-				uint8_t  layer;
+				uint32_t mipLevel;
+				uint32_t layer;
 			};
 
-			ImageInfo* imageInfos = (ImageInfo*)BX_ALLOC(g_allocator, sizeof(ImageInfo) * numSrd);
+			ImageInfo* imageInfos = (ImageInfo*)bx::alloc(g_allocator, sizeof(ImageInfo) * numSrd);
 			bx::memSet(imageInfos, 0, sizeof(ImageInfo) * numSrd);
 			uint32_t alignment = 1; // tightly aligned buffer
 
-			for (uint8_t side = 0; side < numSides; ++side)
+			for (uint16_t side = 0; side < numSides; ++side)
 			{
 				for (uint8_t lod = 0; lod < ti.numMips; ++lod)
 				{
@@ -5962,7 +6000,7 @@ VK_DESTROY
 							const uint32_t slice = bx::strideAlign(bx::max<uint32_t>(mip.m_height, 4) * pitch, alignment);
 							const uint32_t size  = slice * mip.m_depth;
 
-							uint8_t* temp = (uint8_t*)BX_ALLOC(g_allocator, size);
+							uint8_t* temp = (uint8_t*)bx::alloc(g_allocator, size);
 							bimg::imageDecodeToBgra8(
 								  g_allocator
 								, temp
@@ -5989,7 +6027,7 @@ VK_DESTROY
 							const uint32_t slice = bx::strideAlign( (mip.m_height / blockInfo.blockHeight) * pitch, alignment);
 							const uint32_t size  = slice * mip.m_depth;
 
-							uint8_t* temp = (uint8_t*)BX_ALLOC(g_allocator, size);
+							uint8_t* temp = (uint8_t*)bx::alloc(g_allocator, size);
 							bimg::imageCopy(
 								  temp
 								, mip.m_height / blockInfo.blockHeight
@@ -6015,7 +6053,7 @@ VK_DESTROY
 							const uint32_t slice = bx::strideAlign(mip.m_height * pitch, alignment);
 							const uint32_t size  = slice * mip.m_depth;
 
-							uint8_t* temp = (uint8_t*)BX_ALLOC(g_allocator, size);
+							uint8_t* temp = (uint8_t*)bx::alloc(g_allocator, size);
 							bimg::imageCopy(
 								  temp
 								, mip.m_height
@@ -6041,7 +6079,7 @@ VK_DESTROY
 			}
 
 			uint32_t totalMemSize = 0;
-			VkBufferImageCopy* bufferCopyInfo = (VkBufferImageCopy*)BX_ALLOC(g_allocator, sizeof(VkBufferImageCopy) * numSrd);
+			VkBufferImageCopy* bufferCopyInfo = (VkBufferImageCopy*)bx::alloc(g_allocator, sizeof(VkBufferImageCopy) * numSrd);
 
 			for (uint32_t ii = 0; ii < numSrd; ++ii)
 			{
@@ -6096,14 +6134,14 @@ VK_DESTROY
 				setImageMemoryBarrier(_commandBuffer, m_sampledLayout);
 			}
 
-			BX_FREE(g_allocator, bufferCopyInfo);
+			bx::free(g_allocator, bufferCopyInfo);
 
 			for (uint32_t ii = 0; ii < numSrd; ++ii)
 			{
-				BX_FREE(g_allocator, imageInfos[ii].data);
+				bx::free(g_allocator, imageInfos[ii].data);
 			}
 
-			BX_FREE(g_allocator, imageInfos);
+			bx::free(g_allocator, imageInfos);
 
 			m_readback.create(m_textureImage, m_width, m_height, TextureFormat::Enum(m_textureFormat) );
 		}
@@ -6162,7 +6200,7 @@ VK_DESTROY
 
 		if (convert)
 		{
-			temp = (uint8_t*)BX_ALLOC(g_allocator, slicepitch);
+			temp = (uint8_t*)bx::alloc(g_allocator, slicepitch);
 			bimg::imageDecodeToBgra8(g_allocator, temp, data, _rect.m_width, _rect.m_height, srcpitch, bimg::TextureFormat::Enum(m_requestedFormat));
 			data = temp;
 
@@ -6199,7 +6237,7 @@ VK_DESTROY
 
 		if (NULL != temp)
 		{
-			BX_FREE(g_allocator, temp);
+			bx::free(g_allocator, temp);
 		}
 	}
 
@@ -6738,6 +6776,20 @@ VK_DESTROY
 			}
 		}
 #elif BX_PLATFORM_LINUX
+#if     WL_EGL_PLATFORM
+		{
+			if (NULL != vkCreateWaylandSurfaceKHR)
+			{
+				VkWaylandSurfaceCreateInfoKHR sci;
+				sci.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+				sci.pNext = NULL;
+				sci.flags = 0;
+				sci.display = (wl_display*)g_platformData.ndt;
+				sci.surface = (wl_surface*)((wl_egl_window*)g_platformData.nwh)->surface;
+				result = vkCreateWaylandSurfaceKHR(instance, &sci, allocatorCb, &m_surface);
+			}
+		}
+#else
 		{
 			if (NULL != vkCreateXlibSurfaceKHR)
 			{
@@ -6774,6 +6826,7 @@ VK_DESTROY
 				}
 			}
 		}
+#endif // WL_EGL_PLATFORM
 #elif BX_PLATFORM_OSX
 		{
 			if (NULL != vkCreateMacOSSurfaceMVK)
@@ -7274,13 +7327,13 @@ VK_DESTROY
 			return selectedFormat;
 		}
 
-		VkSurfaceFormatKHR* surfaceFormats = (VkSurfaceFormatKHR*)BX_ALLOC(g_allocator, numSurfaceFormats * sizeof(VkSurfaceFormatKHR) );
+		VkSurfaceFormatKHR* surfaceFormats = (VkSurfaceFormatKHR*)bx::alloc(g_allocator, numSurfaceFormats * sizeof(VkSurfaceFormatKHR) );
 		result = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &numSurfaceFormats, surfaceFormats);
 
 		if (VK_SUCCESS != result)
 		{
 			BX_TRACE("findSurfaceFormat error: vkGetPhysicalDeviceSurfaceFormatsKHR failed %d: %s.", result, getName(result) );
-			BX_FREE(g_allocator, surfaceFormats);
+			bx::free(g_allocator, surfaceFormats);
 			return selectedFormat;
 		}
 
@@ -7320,7 +7373,7 @@ VK_DESTROY
 			}
 		}
 
-		BX_FREE(g_allocator, surfaceFormats);
+		bx::free(g_allocator, surfaceFormats);
 
 		if (TextureFormat::Count == selectedFormat)
 		{

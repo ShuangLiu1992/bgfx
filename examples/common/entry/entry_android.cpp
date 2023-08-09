@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2022 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -554,8 +554,7 @@ namespace entry
 		BX_UNUSED(_thread);
 
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
-		int32_t result = main(self->m_argc, self->m_argv, self->m_func);
-//		PostMessage(s_ctx->m_hwnd, WM_QUIT, 0, 0);
+		result = main(self->m_argc, self->m_argv);
 		return result;
 	}
 
