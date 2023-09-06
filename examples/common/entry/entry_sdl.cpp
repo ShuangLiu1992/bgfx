@@ -1153,6 +1153,11 @@ namespace entry
 		return sdlNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
+    void* getEntryWindowHandle(WindowHandle _handle)
+    {
+        return s_ctx->m_window[_handle.idx];
+    }
+
 	void* getNativeDisplayHandle()
 	{
 		SDL_SysWMinfo wmi;

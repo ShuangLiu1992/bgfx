@@ -880,6 +880,11 @@ namespace entry
 		return glfwNativeWindowHandle(s_ctx->m_window[_handle.idx]);
 	}
 
+    void* getEntryWindowHandle(WindowHandle _handle)
+    {
+        return s_ctx->m_window[_handle.idx];
+    }
+
 	void* getNativeDisplayHandle()
 	{
 #	if BX_PLATFORM_LINUX || BX_PLATFORM_BSD

@@ -303,6 +303,9 @@ namespace entry
 	///
 	void* getNativeWindowHandle(WindowHandle _handle);
 
+    ///
+    void* getEntryWindowHandle(WindowHandle _handle);
+
 	///
 	void* getNativeDisplayHandle();
 
