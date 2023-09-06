@@ -339,6 +339,7 @@ namespace entry
 		return cast.h;
 	}
 
+	std::function<void()> event_callback;
 	struct Context
 	{
 		Context()
@@ -526,6 +527,9 @@ namespace entry
 			while (!exit)
 			{
 				bgfx::renderFrame();
+				if (event_callback) {
+					event_callback();
+				}
 
 				while (SDL_PollEvent(&event) )
 				{
@@ -1157,6 +1161,11 @@ namespace entry
     {
         return s_ctx->m_window[_handle.idx];
     }
+
+	void setEventCallBack(std::function<void()> func) 
+	{
+		event_callback = func;
+	}
 
 	void* getNativeDisplayHandle()
 	{

@@ -306,6 +306,9 @@ namespace entry
     ///
     void* getEntryWindowHandle(WindowHandle _handle);
 
+	/// set EventCallBack
+	void setEventCallBack(std::function<void()> func);
+
 	///
 	void* getNativeDisplayHandle();
 

@@ -329,6 +329,7 @@ namespace entry
 		return length;
 	}
 
+	std::function<void()> event_callback;
 	struct Context
 	{
 		Context()
@@ -478,6 +479,9 @@ namespace entry
 			&&     !glfwWindowShouldClose(m_window[0]))
 			{
 				glfwWaitEventsTimeout(0.016);
+				if(event_callback) {
+					event_callback();
+				}
 
 				for (uint32_t ii = 0; ii < ENTRY_CONFIG_MAX_GAMEPADS; ++ii)
 				{
@@ -884,6 +888,11 @@ namespace entry
     {
         return s_ctx->m_window[_handle.idx];
     }
+
+	void setEventCallBack(std::function<void()> func) 
+	{
+		event_callback = func;
+	}
 
 	void* getNativeDisplayHandle()
 	{
