@@ -15,9 +15,7 @@
 #include "source/opt/function.h"
 
 #include <ostream>
-#include <sstream>
 
-#include "function.h"
 #include "ir_context.h"
 #include "source/util/bit_vector.h"
 
@@ -42,6 +40,10 @@ Function* Function::Clone(IRContext* ctx) const {
   clone->blocks_.reserve(blocks_.size());
   for (const auto& b : blocks_) {
     std::unique_ptr<BasicBlock> bb(b->Clone(ctx));
+    if (!bb) {
+      delete clone;
+      return nullptr;
+    }
     clone->AddBasicBlock(std::move(bb));
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -601,7 +601,7 @@ void initA(Shape& _outShape, Shape::Type::Enum _type, bx::Vec3 _pos)
 
 	case Shape::Type::Plane:
 		{
-			bx::Plane plane(bx::init::None);
+			bx::Plane plane(bx::InitNone);
 			bx::calcPlane(plane, bx::normalize(bx::Vec3{0.0f, 1.0f, 1.0f}), _pos);
 			_outShape = Shape(plane);
 		}
@@ -688,7 +688,7 @@ void initB(Shape& _outShape, Shape::Type::Enum _type, bx::Vec3 _pos)
 
 	case Shape::Type::Plane:
 		{
-			bx::Plane plane(bx::init::None);
+			bx::Plane plane(bx::InitNone);
 			bx::calcPlane(plane, bx::normalize(bx::Vec3{1.0f, 1.0f, 0.0f}), _pos);
 			_outShape = Shape(plane);
 		}
@@ -780,6 +780,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -795,8 +796,6 @@ public:
 				, 1.0f
 				, 0
 				);
-
-		m_timeOffset = bx::getHPCounter();
 
 		cameraCreate();
 
@@ -817,6 +816,8 @@ public:
 			);
 
 		imguiCreate();
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -862,6 +863,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			imguiBeginFrame(
 				   m_mouseState.m_mx
 				,  m_mouseState.m_my
@@ -897,13 +901,6 @@ public:
 			ImGui::End();
 
 			imguiEndFrame();
-
-			int64_t now = bx::getHPCounter() - m_timeOffset;
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime/freq);
 
 			// Update camera.
 			cameraUpdate(deltaTime, m_mouseState, ImGui::MouseOverArea() );
@@ -1001,7 +998,7 @@ public:
 				const bx::Vec3 normal = { 0.0f,  1.0f, 0.0f };
 				const bx::Vec3 pos    = { 0.0f, -2.0f, 0.0f };
 
-				bx::Plane plane(bx::init::None);
+				bx::Plane plane(bx::InitNone);
 				bx::calcPlane(plane, normal, pos);
 
 				dde.setColor(false
@@ -1216,7 +1213,7 @@ public:
 	SpriteHandle   m_sprite;
 	GeometryHandle m_bunny;
 
-	int64_t m_timeOffset;
+	FrameTime m_frameTime;
 
 	uint32_t m_width;
 	uint32_t m_height;

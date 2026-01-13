@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -81,7 +81,7 @@ static const char* s_easeFuncName[] =
 	"InOutBounce",
 	"OutInBounce",
 };
-BX_STATIC_ASSERT(BX_COUNTOF(s_easeFuncName) == bx::Easing::Count);
+static_assert(BX_COUNTOF(s_easeFuncName) == bx::Easing::Count);
 
 struct Emitter
 {
@@ -248,6 +248,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -295,7 +296,7 @@ public:
 		cameraSetPosition({ 0.0f, 2.0f, -12.0f });
 		cameraSetVerticalAngle(0.0f);
 
-		m_timeOffset = bx::getHPCounter();
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -323,17 +324,13 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			// Set view 0 default viewport.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height) );
 
 			bgfx::touch(0);
-
-			int64_t now = bx::getHPCounter() - m_timeOffset;
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime/freq);
 
 			cameraUpdate(deltaTime, m_mouseState, ImGui::MouseOverArea() );
 
@@ -442,14 +439,14 @@ public:
 
 	entry::MouseState m_mouseState;
 
-	int64_t m_timeOffset;
-
 	uint32_t m_width;
 	uint32_t m_height;
 	uint32_t m_debug;
 	uint32_t m_reset;
 
 	Emitter m_emitter[4];
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

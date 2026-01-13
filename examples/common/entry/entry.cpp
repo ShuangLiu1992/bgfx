@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -18,7 +18,7 @@
 #include "cmd.h"
 #include "input.h"
 
-// extern "C" int32_t _main_(int32_t _argc, char** _argv);
+extern "C" int32_t _main_(int32_t _argc, char** _argv);
 
 namespace entry
 {
@@ -34,9 +34,8 @@ namespace entry
 	extern bx::AllocatorI* getDefaultAllocator();
 	bx::AllocatorI* g_allocator = getDefaultAllocator();
 
-	typedef bx::StringT<&g_allocator> String;
-
-	static String s_currentDir;
+	using FixedString4096 = bx::FixedStringT<4096>;
+	static FixedString4096 s_currentDir;
 
 	class FileReader : public bx::FileReader
 	{
@@ -45,9 +44,10 @@ namespace entry
 	public:
 		virtual bool open(const bx::FilePath& _filePath, bx::Error* _err) override
 		{
-			String filePath(s_currentDir);
+			FixedString4096 filePath(s_currentDir);
 			filePath.append(_filePath);
-			return super::open(filePath.getPtr(), _err);
+
+			return super::open(filePath.getCPtr(), _err);
 		}
 	};
 
@@ -58,9 +58,9 @@ namespace entry
 	public:
 		virtual bool open(const bx::FilePath& _filePath, bool _append, bx::Error* _err) override
 		{
-			String filePath(s_currentDir);
-			filePath.append(_filePath);
-			return super::open(filePath.getPtr(), _append, _err);
+			bx::FilePath filePath(s_currentDir);
+			filePath.join(_filePath);
+			return super::open(filePath.getCPtr(), _append, _err);
 		}
 	};
 
@@ -185,7 +185,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		"GamepadStart",
 		"GamepadGuide",
 	};
-	BX_STATIC_ASSERT(Key::Count == BX_COUNTOF(s_keyName) );
+	static_assert(Key::Count == BX_COUNTOF(s_keyName) );
 
 	const char* getName(Key::Enum _key)
 	{
@@ -455,7 +455,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 
 	AppI::AppI(const char* _name, const char* _description, const char* _url)
 	{
-		BX_STATIC_ASSERT(sizeof(AppInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(AppInternal) <= sizeof(m_internal) );
 		s_offset = BX_OFFSETOF(AppI, m_internal);
 
 		AppInternal* ai = (AppInternal*)m_internal;
@@ -566,7 +566,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			return;
 		}
 
-		AppI** apps = (AppI**)BX_ALLOC(g_allocator, s_numApps*sizeof(AppI*) );
+		AppI** apps = (AppI**)bx::alloc(g_allocator, s_numApps*sizeof(AppI*) );
 
 		uint32_t ii = 0;
 		for (AppI* app = getFirstApp(); NULL != app; app = app->getNext() )
@@ -589,9 +589,92 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			ai->m_next = NULL;
 		}
 
-		BX_FREE(g_allocator, apps);
+		bx::free(g_allocator, apps);
 	}
 
+	int main(int _argc, const char* const* _argv)
+	{
+		//DBG(BX_COMPILER_NAME " / " BX_CPU_NAME " / " BX_ARCH_NAME " / " BX_PLATFORM_NAME);
+		bx::installExceptionHandler();
+
+		s_fileReader = BX_NEW(g_allocator, FileReader);
+		s_fileWriter = BX_NEW(g_allocator, FileWriter);
+
+		cmdInit();
+		cmdAdd("mouselock", cmdMouseLock);
+		cmdAdd("graphics",  cmdGraphics );
+		cmdAdd("exit",      cmdExit     );
+		cmdAdd("app",       cmdApp      );
+
+		inputInit();
+		inputAddBindings("bindings", s_bindings);
+
+		bx::FilePath fp(_argv[0]);
+		char title[bx::kMaxFilePath];
+		bx::strCopy(title, BX_COUNTOF(title), fp.getBaseName() );
+
+		entry::setWindowTitle(kDefaultWindowHandle, title);
+		setWindowSize(kDefaultWindowHandle, ENTRY_DEFAULT_WIDTH, ENTRY_DEFAULT_HEIGHT);
+
+		sortApps();
+
+		const char* find = "";
+		if (1 < _argc)
+		{
+			find = _argv[_argc-1];
+		}
+
+restart:
+		AppI* selected = NULL;
+
+		for (AppI* app = getFirstApp(); NULL != app; app = app->getNext() )
+		{
+			if (NULL == selected
+			&&  !bx::strFindI(app->getName(), find).isEmpty() )
+			{
+				selected = app;
+			}
+#if 0
+			DBG("%c %s, %s"
+				, app == selected ? '>' : ' '
+				, app->getName()
+				, app->getDescription()
+				);
+#endif // 0
+		}
+
+		int32_t result = bx::kExitSuccess;
+		s_restartArgs[0] = '\0';
+		if (0 == s_numApps)
+		{
+			result = ::_main_(_argc, (char**)_argv);
+		}
+		else
+		{
+			result = runApp(getCurrentApp(selected), _argc, _argv);
+		}
+
+		if (0 != bx::strLen(s_restartArgs) )
+		{
+			find = s_restartArgs;
+			goto restart;
+		}
+
+		setCurrentDir("");
+
+		inputRemoveBindings("bindings");
+		inputShutdown();
+
+		cmdShutdown();
+
+		bx::deleteObject(g_allocator, s_fileReader);
+		s_fileReader = NULL;
+
+		bx::deleteObject(g_allocator, s_fileWriter);
+		s_fileWriter = NULL;
+
+		return result;
+	}
 
 	WindowState s_window[ENTRY_CONFIG_MAX_WINDOWS];
 
@@ -685,6 +768,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 						handle  = size->m_handle;
 						_width  = size->m_width;
 						_height = size->m_height;
+						BX_TRACE("Window resize event: %d: %dx%d", handle, _width, _height);
 
 						needReset = true;
 					}
@@ -718,6 +802,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		&&  needReset)
 		{
 			_reset = s_reset;
+			BX_TRACE("bgfx::reset(%d, %d, 0x%x)", _width, _height, _reset);
 			bgfx::reset(_width, _height, _reset);
 			inputSetMouseResolution(uint16_t(_width), uint16_t(_height) );
 		}
@@ -768,7 +853,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			if (NULL != ev)
 			{
 				handle = ev->m_handle;
-				WindowState& win = s_window[handle.idx];
+				WindowState& win = s_window[isValid(handle) ? handle.idx : 0];
 
 				switch (ev->m_type)
 				{
@@ -897,6 +982,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		if (needReset)
 		{
 			_reset = s_reset;
+			BX_TRACE("bgfx::reset(%d, %d, 0x%x)", s_window[0].m_width, s_window[0].m_height, _reset);
 			bgfx::reset(s_window[0].m_width, s_window[0].m_height, _reset);
 			inputSetMouseResolution(uint16_t(s_window[0].m_width), uint16_t(s_window[0].m_height) );
 		}
@@ -928,14 +1014,14 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 
 	void* TinyStlAllocator::static_allocate(size_t _bytes)
 	{
-		return BX_ALLOC(getAllocator(), _bytes);
+		return bx::alloc(getAllocator(), _bytes);
 	}
 
 	void TinyStlAllocator::static_deallocate(void* _ptr, size_t /*_bytes*/)
 	{
 		if (NULL != _ptr)
 		{
-			BX_FREE(getAllocator(), _ptr);
+			bx::free(getAllocator(), _ptr);
 		}
 	}
 
@@ -954,4 +1040,9 @@ extern "C" void* entry_get_default_native_window_handle()
 extern "C" void* entry_get_native_display_handle()
 {
 	return entry::getNativeDisplayHandle();
+}
+
+extern "C" bgfx::NativeWindowHandleType::Enum entry_get_native_window_handle_type()
+{
+	return entry::getNativeWindowHandleType();
 }

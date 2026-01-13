@@ -177,8 +177,7 @@ static const uint16_t s_planeIndices[] =
 	1, 3, 2,
 };
 
-static bool s_flipV = false;
-static float s_texelHalf = 0.0f;
+static bool s_originBottomLeft = false;
 
 static bgfx::UniformHandle s_texColor;
 static bgfx::UniformHandle s_shadowMap[ShadowMapRenderTargets::Count];
@@ -386,55 +385,49 @@ struct Uniforms
 		m_csmFarDistances[2] = 180.0f;
 		m_csmFarDistances[3] = 1000.0f;
 
-		m_tetraNormalGreen[0] = 0.0f;
-		m_tetraNormalGreen[1] = -0.57735026f;
-		m_tetraNormalGreen[2] = 0.81649661f;
-
-		m_tetraNormalYellow[0] = 0.0f;
-		m_tetraNormalYellow[1] = -0.57735026f;
-		m_tetraNormalYellow[2] = -0.81649661f;
-
-		m_tetraNormalBlue[0] = -0.81649661f;
-		m_tetraNormalBlue[1] = 0.57735026f;
-		m_tetraNormalBlue[2] = 0.0f;
-
-		m_tetraNormalRed[0] = 0.81649661f;
-		m_tetraNormalRed[1] = 0.57735026f;
-		m_tetraNormalRed[2] = 0.0f;
-
 		m_XNum = 2.0f;
 		m_YNum = 2.0f;
 		m_XOffset = 10.0f/512.0f;
 		m_YOffset = 10.0f/512.0f;
 
 		u_params0          = bgfx::createUniform("u_params0",          bgfx::UniformType::Vec4);
-		u_params1          = bgfx::createUniform("u_params1",          bgfx::UniformType::Vec4);
-		u_params2          = bgfx::createUniform("u_params2",          bgfx::UniformType::Vec4);
+		u_params1          = bgfx::createUniform("u_params1",          bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_params2          = bgfx::createUniform("u_params2",          bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
 		u_color            = bgfx::createUniform("u_color",            bgfx::UniformType::Vec4);
-		u_smSamplingParams = bgfx::createUniform("u_smSamplingParams", bgfx::UniformType::Vec4);
-		u_csmFarDistances  = bgfx::createUniform("u_csmFarDistances",  bgfx::UniformType::Vec4);
+		u_smSamplingParams = bgfx::createUniform("u_smSamplingParams", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_csmFarDistances  = bgfx::createUniform("u_csmFarDistances",  bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
 		u_lightMtx         = bgfx::createUniform("u_lightMtx",         bgfx::UniformType::Mat4);
 
-		u_tetraNormalGreen  = bgfx::createUniform("u_tetraNormalGreen",  bgfx::UniformType::Vec4);
-		u_tetraNormalYellow = bgfx::createUniform("u_tetraNormalYellow", bgfx::UniformType::Vec4);
-		u_tetraNormalBlue   = bgfx::createUniform("u_tetraNormalBlue",   bgfx::UniformType::Vec4);
-		u_tetraNormalRed    = bgfx::createUniform("u_tetraNormalRed",    bgfx::UniformType::Vec4);
+		u_tetraNormalGreen  = bgfx::createUniform("u_tetraNormalGreen",  bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_tetraNormalYellow = bgfx::createUniform("u_tetraNormalYellow", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_tetraNormalBlue   = bgfx::createUniform("u_tetraNormalBlue",   bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_tetraNormalRed    = bgfx::createUniform("u_tetraNormalRed",    bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+
+		const float tetraNormalGreen[]  = {         0.0f, -0.57735026f,  0.81649661f };
+		const float tetraNormalYellow[] = {         0.0f, -0.57735026f, -0.81649661f };
+		const float tetraNormalBlue[]   = { -0.81649661f,  0.57735026f,         0.0f };
+		const float tetraNormalRed[]    = {  0.81649661f,  0.57735026f,         0.0f };
+
+		bgfx::setFrameUniform(u_tetraNormalGreen,  tetraNormalGreen);
+		bgfx::setFrameUniform(u_tetraNormalYellow, tetraNormalYellow);
+		bgfx::setFrameUniform(u_tetraNormalBlue,   tetraNormalBlue);
+		bgfx::setFrameUniform(u_tetraNormalRed,    tetraNormalRed);
 
 		u_shadowMapMtx0 = bgfx::createUniform("u_shadowMapMtx0", bgfx::UniformType::Mat4);
 		u_shadowMapMtx1 = bgfx::createUniform("u_shadowMapMtx1", bgfx::UniformType::Mat4);
 		u_shadowMapMtx2 = bgfx::createUniform("u_shadowMapMtx2", bgfx::UniformType::Mat4);
 		u_shadowMapMtx3 = bgfx::createUniform("u_shadowMapMtx3", bgfx::UniformType::Mat4);
 
-		u_lightPosition             = bgfx::createUniform("u_lightPosition",              bgfx::UniformType::Vec4);
-		u_lightAmbientPower         = bgfx::createUniform("u_lightAmbientPower",          bgfx::UniformType::Vec4);
-		u_lightDiffusePower         = bgfx::createUniform("u_lightDiffusePower",          bgfx::UniformType::Vec4);
-		u_lightSpecularPower        = bgfx::createUniform("u_lightSpecularPower",         bgfx::UniformType::Vec4);
-		u_lightSpotDirectionInner   = bgfx::createUniform("u_lightSpotDirectionInner",    bgfx::UniformType::Vec4);
-		u_lightAttenuationSpotOuter = bgfx::createUniform("u_lightAttenuationSpotOuter",  bgfx::UniformType::Vec4);
+		u_lightPosition             = bgfx::createUniform("u_lightPosition",              bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_lightAmbientPower         = bgfx::createUniform("u_lightAmbientPower",          bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_lightDiffusePower         = bgfx::createUniform("u_lightDiffusePower",          bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_lightSpecularPower        = bgfx::createUniform("u_lightSpecularPower",         bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_lightSpotDirectionInner   = bgfx::createUniform("u_lightSpotDirectionInner",    bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_lightAttenuationSpotOuter = bgfx::createUniform("u_lightAttenuationSpotOuter",  bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
 
-		u_materialKa = bgfx::createUniform("u_materialKa", bgfx::UniformType::Vec4);
-		u_materialKd = bgfx::createUniform("u_materialKd", bgfx::UniformType::Vec4);
-		u_materialKs = bgfx::createUniform("u_materialKs", bgfx::UniformType::Vec4);
+		u_materialKa = bgfx::createUniform("u_materialKa", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_materialKd = bgfx::createUniform("u_materialKd", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
+		u_materialKs = bgfx::createUniform("u_materialKs", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
 
 	}
 
@@ -451,33 +444,24 @@ struct Uniforms
 		m_shadowMapMtx3 = _shadowMapMtx3;
 	}
 
-	// Call this once at initialization.
-	void submitConstUniforms()
-	{
-		bgfx::setUniform(u_tetraNormalGreen,  m_tetraNormalGreen);
-		bgfx::setUniform(u_tetraNormalYellow, m_tetraNormalYellow);
-		bgfx::setUniform(u_tetraNormalBlue,   m_tetraNormalBlue);
-		bgfx::setUniform(u_tetraNormalRed,    m_tetraNormalRed);
-	}
-
 	// Call this once per frame.
 	void submitPerFrameUniforms()
 	{
-		bgfx::setUniform(u_params1, m_params1);
-		bgfx::setUniform(u_params2, m_params2);
-		bgfx::setUniform(u_smSamplingParams, m_paramsBlur);
-		bgfx::setUniform(u_csmFarDistances, m_csmFarDistances);
+		bgfx::setFrameUniform(u_params1, m_params1);
+		bgfx::setFrameUniform(u_params2, m_params2);
+		bgfx::setFrameUniform(u_smSamplingParams, m_paramsBlur);
+		bgfx::setFrameUniform(u_csmFarDistances, m_csmFarDistances);
 
-		bgfx::setUniform(u_materialKa, &m_materialPtr->m_ka);
-		bgfx::setUniform(u_materialKd, &m_materialPtr->m_kd);
-		bgfx::setUniform(u_materialKs, &m_materialPtr->m_ks);
+		bgfx::setFrameUniform(u_materialKa, &m_materialPtr->m_ka);
+		bgfx::setFrameUniform(u_materialKd, &m_materialPtr->m_kd);
+		bgfx::setFrameUniform(u_materialKs, &m_materialPtr->m_ks);
 
-		bgfx::setUniform(u_lightPosition,             &m_lightPtr->m_position_viewSpace);
-		bgfx::setUniform(u_lightAmbientPower,         &m_lightPtr->m_ambientPower);
-		bgfx::setUniform(u_lightDiffusePower,         &m_lightPtr->m_diffusePower);
-		bgfx::setUniform(u_lightSpecularPower,        &m_lightPtr->m_specularPower);
-		bgfx::setUniform(u_lightSpotDirectionInner,   &m_lightPtr->m_spotDirectionInner_viewSpace);
-		bgfx::setUniform(u_lightAttenuationSpotOuter, &m_lightPtr->m_attenuationSpotOuter);
+		bgfx::setFrameUniform(u_lightPosition,             &m_lightPtr->m_position_viewSpace);
+		bgfx::setFrameUniform(u_lightAmbientPower,         &m_lightPtr->m_ambientPower);
+		bgfx::setFrameUniform(u_lightDiffusePower,         &m_lightPtr->m_diffusePower);
+		bgfx::setFrameUniform(u_lightSpecularPower,        &m_lightPtr->m_specularPower);
+		bgfx::setFrameUniform(u_lightSpotDirectionInner,   &m_lightPtr->m_spotDirectionInner_viewSpace);
+		bgfx::setFrameUniform(u_lightAttenuationSpotOuter, &m_lightPtr->m_attenuationSpotOuter);
 	}
 
 	// Call this before each draw call.
@@ -577,10 +561,6 @@ struct Uniforms
 		float m_paramsBlur[4];
 	};
 
-	float m_tetraNormalGreen[3];
-	float m_tetraNormalYellow[3];
-	float m_tetraNormalBlue[3];
-	float m_tetraNormalRed[3];
 	float m_csmFarDistances[4];
 
 	float* m_lightMtxPtr;
@@ -858,7 +838,7 @@ struct PosColorTexCoord0Vertex
 
 bgfx::VertexLayout PosColorTexCoord0Vertex::ms_layout;
 
-void screenSpaceQuad(float _textureWidth, float _textureHeight, bool _originBottomLeft = true, float _width = 1.0f, float _height = 1.0f)
+void screenSpaceQuad(bool _originBottomLeft = true, float _width = 1.0f, float _height = 1.0f)
 {
 	if (3 == bgfx::getAvailTransientVertexBuffer(3, PosColorTexCoord0Vertex::ms_layout) )
 	{
@@ -873,13 +853,11 @@ void screenSpaceQuad(float _textureWidth, float _textureHeight, bool _originBott
 		const float miny = 0.0f;
 		const float maxy = _height*2.0f;
 
-		const float texelHalfW = s_texelHalf/_textureWidth;
-		const float texelHalfH = s_texelHalf/_textureHeight;
-		const float minu = -1.0f + texelHalfW;
-		const float maxu =  1.0f + texelHalfW;
+		const float minu = -1.0f;
+		const float maxu =  1.0f;
 
-		float minv = texelHalfH;
-		float maxv = 2.0f + texelHalfH;
+		float minv = 0.0f;
+		float maxv = 2.0f;
 
 		if (_originBottomLeft)
 		{
@@ -1159,6 +1137,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_viewState.m_width;
 		init.resolution.height = m_viewState.m_height;
 		init.resolution.reset  = m_reset;
@@ -1167,22 +1146,7 @@ public:
 		// Enable debug text.
 		bgfx::setDebug(m_debug);
 
-		// Setup root path for binary shaders. Shader binaries are different
-		// for each renderer.
-		switch (bgfx::getRendererType() )
-		{
-			case bgfx::RendererType::Direct3D9:
-				s_texelHalf = 0.5f;
-				break;
-
-			case bgfx::RendererType::OpenGL:
-			case bgfx::RendererType::OpenGLES:
-				s_flipV = true;
-				break;
-
-			default:
-				break;
-		}
+		s_originBottomLeft = bgfx::getCaps()->originBottomLeft;
 
 		// Imgui.
 		imguiCreate();
@@ -1269,7 +1233,6 @@ public:
 						   , &m_shadowMapMtx[ShadowMapRenderTargets::Third][0]
 						   , &m_shadowMapMtx[ShadowMapRenderTargets::Fourth][0]
 						   );
-		s_uniforms.submitConstUniforms();
 
 		// Settings.
 		ShadowMapSettings smSettings[LightType::Count][DepthImpl::Count][SmImpl::Count] =
@@ -1762,6 +1725,8 @@ public:
 
 		m_timeAccumulatorLight = 0.0f;
 		m_timeAccumulatorScene = 0.0f;
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -1806,6 +1771,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			m_viewState.m_width  = uint16_t(m_width);
 			m_viewState.m_height = uint16_t(m_height);
 
@@ -1823,10 +1791,6 @@ public:
 
 			float currentShadowMapSizef = float(int16_t(m_currentShadowMapSize) );
 			s_uniforms.m_shadowMapTexelSize = 1.0f / currentShadowMapSizef;
-
-			s_uniforms.submitConstUniforms();
-
-			//		s_uniforms.submitConstUniforms();
 
 			// Imgui.
 			imguiBeginFrame(m_mouseState.m_mx
@@ -2040,14 +2004,6 @@ public:
 
 			s_uniforms.submitPerFrameUniforms();
 
-			// Time.
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime/freq);
-
 			// Update camera.
 			cameraUpdate(deltaTime, m_mouseState, ImGui::MouseOverArea() );
 
@@ -2078,71 +2034,71 @@ public:
 			float mtxFloor[16];
 			const float floorScale = 550.0f;
 			bx::mtxSRT(mtxFloor
-					   , floorScale //scaleX
-					   , floorScale //scaleY
-					   , floorScale //scaleZ
-					   , 0.0f //rotX
-					   , 0.0f //rotY
-					   , 0.0f //rotZ
-					   , 0.0f //translateX
-					   , 0.0f //translateY
-					   , 0.0f //translateZ
-					   );
+				, floorScale //scaleX
+				, floorScale //scaleY
+				, floorScale //scaleZ
+				, 0.0f //rotX
+				, 0.0f //rotY
+				, 0.0f //rotZ
+				, 0.0f //translateX
+				, 0.0f //translateY
+				, 0.0f //translateZ
+				);
 
 			float mtxBunny[16];
 			bx::mtxSRT(mtxBunny
-					   , 5.0f
-					   , 5.0f
-					   , 5.0f
-					   , 0.0f
-					   , 1.56f - m_timeAccumulatorScene
-					   , 0.0f
-					   , 15.0f
-					   , 5.0f
-					   , 0.0f
-					   );
+				, 5.0f
+				, 5.0f
+				, 5.0f
+				, 0.0f
+				, 1.56f - m_timeAccumulatorScene
+				, 0.0f
+				, 15.0f
+				, 5.0f
+				, 0.0f
+				);
 
 			float mtxHollowcube[16];
 			bx::mtxSRT(mtxHollowcube
-					   , 2.5f
-					   , 2.5f
-					   , 2.5f
-					   , 0.0f
-					   , 1.56f - m_timeAccumulatorScene
-					   , 0.0f
-					   , 0.0f
-					   , 10.0f
-					   , 0.0f
-					   );
+				, 2.5f
+				, 2.5f
+				, 2.5f
+				, 0.0f
+				, 1.56f - m_timeAccumulatorScene
+				, 0.0f
+				, 0.0f
+				, 10.0f
+				, 0.0f
+				);
 
 			float mtxCube[16];
 			bx::mtxSRT(mtxCube
-					   , 2.5f
-					   , 2.5f
-					   , 2.5f
-					   , 0.0f
-					   , 1.56f - m_timeAccumulatorScene
-					   , 0.0f
-					   , -15.0f
-					   , 5.0f
-					   , 0.0f
-					   );
+				, 2.5f
+				, 2.5f
+				, 2.5f
+				, 0.0f
+				, 1.56f - m_timeAccumulatorScene
+				, 0.0f
+				, -15.0f
+				, 5.0f
+				, 0.0f
+				);
 
 			const uint8_t numTrees = 10;
 			float mtxTrees[numTrees][16];
 			for (uint8_t ii = 0; ii < numTrees; ++ii)
 			{
 				bx::mtxSRT(mtxTrees[ii]
-						   , 2.0f
-						   , 2.0f
-						   , 2.0f
-						   , 0.0f
-						   , float(ii)
-						   , 0.0f
-						   , bx::sin(float(ii)*2.0f*bx::kPi/float(numTrees) ) * 60.0f
-						   , 0.0f
-						   , bx::cos(float(ii)*2.0f*bx::kPi/float(numTrees) ) * 60.0f
-						   );
+					, 2.0f
+					, 2.0f
+					, 2.0f
+					, 0.0f
+					, float(ii)
+					, 0.0f
+					, bx::sin(float(ii) * 2.0f * bx::kPi / float(numTrees)) * 60.0f
+					, 0.0f
+					, bx::cos(float(ii) * 2.0f * bx::kPi / float(numTrees)) * 60.0f
+					);
 			}
 
 			// Compute transform matrices.
@@ -2155,17 +2111,16 @@ public:
 			float screenView[16];
 			bx::mtxIdentity(screenView);
 
-			bx::mtxOrtho(
-						 screenProj
-						 , 0.0f
-						 , 1.0f
-						 , 1.0f
-						 , 0.0f
-						 , 0.0f
-						 , 100.0f
-						 , 0.0f
-						 , caps->homogeneousDepth
-						 );
+			bx::mtxOrtho(screenProj
+				, 0.0f
+				, 1.0f
+				, 1.0f
+				, 0.0f
+				, 0.0f
+				, 100.0f
+				, 0.0f
+				, caps->homogeneousDepth
+				);
 
 			// Update render target size.
 			uint16_t shadowMapSize = 1 << uint32_t(currentSmSettings->m_sizePwrTwo);
@@ -2211,13 +2166,13 @@ public:
 				const float fovy = m_settings.m_coverageSpotL;
 				const float aspect = 1.0f;
 				bx::mtxProj(
-							lightProj[ProjType::Horizontal]
-							, fovy
-							, aspect
-							, currentSmSettings->m_near
-							, currentSmSettings->m_far
-							, false
-							);
+					lightProj[ProjType::Horizontal]
+					, fovy
+					, aspect
+					, currentSmSettings->m_near
+					, currentSmSettings->m_far
+					, false
+					);
 
 				//For linear depth, prevent depth division by variable w-component in shaders and divide here by far plane
 				if (DepthImpl::Linear == m_settings.m_depthImpl)
@@ -2248,12 +2203,12 @@ public:
 
 					bx::mtxProj(
 						  lightProj[ProjType::Vertical]
-								, fovx
-								, aspect
-								, currentSmSettings->m_near
-								, currentSmSettings->m_far
-								, false
-								);
+						, fovx
+						, aspect
+						, currentSmSettings->m_near
+						, currentSmSettings->m_far
+						, false
+						);
 
 					//For linear depth, prevent depth division by variable w-component in shaders and divide here by far plane
 					if (DepthImpl::Linear == m_settings.m_depthImpl)
@@ -2273,13 +2228,13 @@ public:
 				const float aspect = bx::tan(bx::toRad(fovx*0.5f) )/bx::tan(bx::toRad(fovy*0.5f) );
 
 				bx::mtxProj(
-							lightProj[ProjType::Horizontal]
-							, fovy
-							, aspect
-							, currentSmSettings->m_near
-							, currentSmSettings->m_far
-							, caps->homogeneousDepth
-							);
+					  lightProj[ProjType::Horizontal]
+					, fovy
+					, aspect
+					, currentSmSettings->m_near
+					, currentSmSettings->m_far
+					, caps->homogeneousDepth
+					);
 
 				//For linear depth, prevent depth division by variable w component in shaders and divide here by far plane
 				if (DepthImpl::Linear == m_settings.m_depthImpl)
@@ -2783,12 +2738,12 @@ public:
 			{
 				bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtShadowMap[0]) );
 				bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-				screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+				screenSpaceQuad(s_originBottomLeft);
 				bgfx::submit(RENDERVIEW_VBLUR_0_ID, s_programs.m_vBlur[depthType]);
 
 				bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtBlur) );
 				bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-				screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+				screenSpaceQuad(s_originBottomLeft);
 				bgfx::submit(RENDERVIEW_HBLUR_0_ID, s_programs.m_hBlur[depthType]);
 
 				if (LightType::DirectionalLight == m_settings.m_lightType)
@@ -2799,12 +2754,12 @@ public:
 
 						bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtShadowMap[ii]) );
 						bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-						screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+						screenSpaceQuad(s_originBottomLeft);
 						bgfx::submit(viewId, s_programs.m_vBlur[depthType]);
 
 						bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtBlur) );
 						bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-						screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+						screenSpaceQuad(s_originBottomLeft);
 						bgfx::submit(viewId+1, s_programs.m_hBlur[depthType]);
 					}
 				}
@@ -2815,7 +2770,7 @@ public:
 				// Setup shadow mtx.
 				float mtxShadow[16];
 
-				const float ymul = (s_flipV) ? 0.5f : -0.5f;
+				const float ymul = (s_originBottomLeft) ? 0.5f : -0.5f;
 				float zadd = (DepthImpl::Linear == m_settings.m_depthImpl) ? 0.0f : 0.5f;
 
 				const float mtxBias[16] =
@@ -2834,7 +2789,7 @@ public:
 				}
 				else if (LightType::PointLight == m_settings.m_lightType)
 				{
-					const float s = (s_flipV) ? 1.0f : -1.0f; //sign
+					const float s = (s_originBottomLeft) ? 1.0f : -1.0f; //sign
 					zadd = (DepthImpl::Linear == m_settings.m_depthImpl) ? 0.0f : 0.5f;
 
 					const float mtxCropBias[2][TetrahedronFaces::Count][16] =
@@ -2911,7 +2866,7 @@ public:
 					for (uint8_t ii = 0; ii < TetrahedronFaces::Count; ++ii)
 					{
 						ProjType::Enum projType = (m_settings.m_stencilPack) ? ProjType::Enum(ii>1) : ProjType::Horizontal;
-						uint8_t biasIndex = cropBiasIndices[m_settings.m_stencilPack][uint8_t(s_flipV)][ii];
+						uint8_t biasIndex = cropBiasIndices[m_settings.m_stencilPack][uint8_t(s_originBottomLeft)][ii];
 
 						float mtxTmp[16];
 						bx::mtxMul(mtxTmp, mtxYpr[ii], lightProj[projType]);
@@ -3039,7 +2994,7 @@ public:
 			{
 				bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtShadowMap[0]) );
 				bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-				screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+				screenSpaceQuad(s_originBottomLeft);
 				bgfx::submit(RENDERVIEW_DRAWDEPTH_0_ID, s_programs.m_drawDepth[depthType]);
 
 				if (LightType::DirectionalLight == m_settings.m_lightType)
@@ -3048,7 +3003,7 @@ public:
 					{
 						bgfx::setTexture(4, s_shadowMap[0], bgfx::getTexture(s_rtShadowMap[ii]) );
 						bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-						screenSpaceQuad(currentShadowMapSizef, currentShadowMapSizef, s_flipV);
+						screenSpaceQuad(s_originBottomLeft);
 						bgfx::submit(RENDERVIEW_DRAWDEPTH_0_ID+ii, s_programs.m_drawDepth[depthType]);
 					}
 				}
@@ -3102,6 +3057,8 @@ public:
 
 	float m_timeAccumulatorLight;
 	float m_timeAccumulatorScene;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

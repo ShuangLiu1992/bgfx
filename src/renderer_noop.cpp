@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -18,13 +18,17 @@ namespace bgfx { namespace noop
 				| BGFX_CAPS_COMPUTE
 				| BGFX_CAPS_CONSERVATIVE_RASTER
 				| BGFX_CAPS_DRAW_INDIRECT
+				| BGFX_CAPS_DRAW_INDIRECT_COUNT
 				| BGFX_CAPS_FRAGMENT_DEPTH
 				| BGFX_CAPS_FRAGMENT_ORDERING
 				| BGFX_CAPS_GRAPHICS_DEBUGGER
+				| BGFX_CAPS_HDR10
 				| BGFX_CAPS_HIDPI
+				| BGFX_CAPS_IMAGE_RW
 				| BGFX_CAPS_INDEX32
 				| BGFX_CAPS_INSTANCING
 				| BGFX_CAPS_OCCLUSION_QUERY
+				| BGFX_CAPS_PRIMITIVE_ID
 				| BGFX_CAPS_RENDERER_MULTITHREADED
 				| BGFX_CAPS_SWAP_CHAIN
 				| BGFX_CAPS_TEXTURE_2D_ARRAY
@@ -34,8 +38,11 @@ namespace bgfx { namespace noop
 				| BGFX_CAPS_TEXTURE_COMPARE_LEQUAL
 				| BGFX_CAPS_TEXTURE_CUBE_ARRAY
 				| BGFX_CAPS_TEXTURE_READ_BACK
+				| BGFX_CAPS_TRANSPARENT_BACKBUFFER
 				| BGFX_CAPS_VERTEX_ATTRIB_HALF
 				| BGFX_CAPS_VERTEX_ATTRIB_UINT10
+				| BGFX_CAPS_VERTEX_ID
+				| BGFX_CAPS_VIEWPORT_LAYER_ARRAY
 				;
 
 			// Pretend all features are available for all texture formats.
@@ -162,15 +169,7 @@ namespace bgfx { namespace noop
 			return NULL;
 		}
 
-		void updateTextureBegin(TextureHandle /*_handle*/, uint8_t /*_side*/, uint8_t /*_mip*/) override
-		{
-		}
-
 		void updateTexture(TextureHandle /*_handle*/, uint8_t /*_side*/, uint8_t /*_mip*/, const Rect& /*_rect*/, uint16_t /*_z*/, uint16_t /*_depth*/, uint16_t /*_pitch*/, const Memory* /*_mem*/) override
-		{
-		}
-
-		void updateTextureEnd() override
 		{
 		}
 
@@ -182,7 +181,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void overrideInternal(TextureHandle /*_handle*/, uintptr_t /*_ptr*/) override
+		void overrideInternal(TextureHandle /*_handle*/, uintptr_t /*_ptr*/, uint16_t /*_layerIndex*/) override
 		{
 		}
 
@@ -260,11 +259,15 @@ namespace bgfx { namespace noop
 			perfStats.gpuMemoryUsed = -INT64_MAX;
 		}
 
-		void blitSetup(TextVideoMemBlitter& /*_blitter*/) override
+		void dbgTextRenderBegin(TextVideoMemBlitter& /*_blitter*/) override
 		{
 		}
 
-		void blitRender(TextVideoMemBlitter& /*_blitter*/, uint32_t /*_numIndices*/) override
+		void dbgTextRender(TextVideoMemBlitter& /*_blitter*/, uint32_t /*_numIndices*/) override
+		{
+		}
+
+		void dbgTextRenderEnd(TextVideoMemBlitter& /*_blitter*/) override
 		{
 		}
 	};
@@ -280,7 +283,7 @@ namespace bgfx { namespace noop
 
 	void rendererDestroy()
 	{
-		BX_DELETE(g_allocator, s_renderNOOP);
+		bx::deleteObject(g_allocator, s_renderNOOP);
 		s_renderNOOP = NULL;
 	}
 } /* namespace noop */ } // namespace bgfx

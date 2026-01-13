@@ -175,7 +175,7 @@ static const uint32_t s_indexesL3[] =
 	12u, 5u, 11u,
 	12u, 11u, 10u,
 	12u, 10u, 13u,
-	12u, 13u, 14u,        //End fo first big triangle
+	12u, 13u, 14u,        //End of first big triangle
 
 	15u, 14u, 13u,
 	15u, 13u, 10u,
@@ -339,6 +339,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset = m_reset;
@@ -373,8 +374,6 @@ public:
 		// Imgui.
 		imguiCreate();
 
-		m_timeOffset = bx::getHPCounter();
-
 		m_oldWidth = 0;
 		m_oldHeight = 0;
 		m_oldReset = m_reset;
@@ -394,6 +393,8 @@ public:
 		createAtomicCounters();
 
 		m_dispatchIndirect = bgfx::createIndirectBuffer(2);
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -444,15 +445,11 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime / freq);
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
 
 			imguiBeginFrame(
-					m_mouseState.m_mx
+				  m_mouseState.m_mx
 				, m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left]   ? IMGUI_MBUT_LEFT   : 0)
 				| (m_mouseState.m_buttons[entry::MouseButton::Right]  ? IMGUI_MBUT_RIGHT  : 0)
@@ -465,11 +462,11 @@ public:
 			showExampleDialog(this);
 
 			ImGui::SetNextWindowPos(
-					ImVec2(m_width - m_width / 5.0f - 10.0f, 10.0f)
+				  ImVec2(m_width - m_width / 5.0f - 10.0f, 10.0f)
 				, ImGuiCond_FirstUseEver
 				);
 			ImGui::SetNextWindowSize(
-					ImVec2(m_width / 5.0f, m_height / 3.0f)
+				  ImVec2(m_width / 5.0f, m_height / 3.0f)
 				, ImGuiCond_FirstUseEver
 				);
 			ImGui::Begin("Settings", NULL, 0);
@@ -896,8 +893,6 @@ public:
 
 	entry::MouseState m_mouseState;
 
-	int64_t m_timeOffset;
-
 	struct DMap
 	{
 		bx::FilePath pathToFile;
@@ -918,6 +913,8 @@ public:
 	bool m_wireframe;
 	bool m_cull;
 	bool m_freeze;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

@@ -21,10 +21,8 @@
 #include <stack>
 
 #include "source/cfa.h"
-#include "source/latest_version_glsl_std_450_header.h"
 #include "source/opt/eliminate_dead_functions_util.h"
 #include "source/opt/ir_builder.h"
-#include "source/opt/iterator.h"
 #include "source/opt/reflect.h"
 #include "source/spirv_constant.h"
 #include "source/util/string_utils.h"
@@ -42,6 +40,14 @@ constexpr uint32_t kCopyMemorySourceAddrInIdx = 1;
 constexpr uint32_t kLoadSourceAddrInIdx = 0;
 constexpr uint32_t kDebugDeclareOperandVariableIndex = 5;
 constexpr uint32_t kGlobalVariableVariableIndex = 12;
+constexpr uint32_t kExtInstSetInIdx = 0;
+constexpr uint32_t kExtInstOpInIdx = 1;
+constexpr uint32_t kInterpolantInIdx = 2;
+constexpr uint32_t kCooperativeMatrixLoadSourceAddrInIdx = 0;
+constexpr uint32_t kDebugDeclareVariableInIdx = 3;
+constexpr uint32_t kDebugValueLocalVariableInIdx = 2;
+constexpr uint32_t kDebugValueValueInIdx = 3;
+constexpr uint32_t kDebugValueExpressionInIdx = 4;
 
 // Sorting functor to present annotation instructions in an easy-to-process
 // order. The functor orders by opcode first and falls back on unique id
@@ -136,7 +142,12 @@ void AggressiveDCEPass::AddStores(Function* func, uint32_t ptrId) {
         }
         break;
       // If default, assume it stores e.g. frexp, modf, function call
-      case spv::Op::OpStore:
+      case spv::Op::OpStore: {
+        const uint32_t kStoreTargetAddrInIdx = 0;
+        if (user->GetSingleWordInOperand(kStoreTargetAddrInIdx) == ptrId)
+          AddToWorklist(user);
+        break;
+      }
       default:
         AddToWorklist(user);
         break;
@@ -158,7 +169,8 @@ bool AggressiveDCEPass::AllExtensionsSupported() const {
            "Expecting an import of an extension's instruction set.");
     const std::string extension_name = inst.GetInOperand(0).AsString();
     if (spvtools::utils::starts_with(extension_name, "NonSemantic.") &&
-        extension_name != "NonSemantic.Shader.DebugInfo.100") {
+        (extension_name != "NonSemantic.Shader.DebugInfo.100") &&
+        (extension_name != "NonSemantic.DebugPrintf")) {
       return false;
     }
   }
@@ -262,16 +274,122 @@ void AggressiveDCEPass::AddBreaksAndContinuesToWorklist(
   });
 }
 
-bool AggressiveDCEPass::AggressiveDCE(Function* func) {
+Pass::Status AggressiveDCEPass::AggressiveDCE(Function* func) {
+  if (func->IsDeclaration()) return Pass::Status::SuccessWithoutChange;
   std::list<BasicBlock*> structured_order;
   cfg()->ComputeStructuredOrder(func, &*func->begin(), &structured_order);
   live_local_vars_.clear();
   InitializeWorkList(func, structured_order);
   ProcessWorkList(func);
+  if (ProcessDebugInformation(structured_order) == Pass::Status::Failure)
+    return Pass::Status::Failure;
+  ProcessWorkList(func);
   return KillDeadInstructions(func, structured_order);
 }
 
-bool AggressiveDCEPass::KillDeadInstructions(
+Pass::Status AggressiveDCEPass::ProcessDebugInformation(
+    std::list<BasicBlock*>& structured_order) {
+  for (auto bi = structured_order.begin(); bi != structured_order.end(); bi++) {
+    bool succeeded = (*bi)->WhileEachInst([this](Instruction* inst) {
+      if (!inst->IsNonSemanticInstruction()) return true;
+
+      if (inst->GetShader100DebugOpcode() ==
+          NonSemanticShaderDebugInfo100DebugDeclare) {
+        if (IsLive(inst)) return true;
+
+        uint32_t var_id =
+            inst->GetSingleWordInOperand(kDebugDeclareVariableInIdx);
+        auto var_def = get_def_use_mgr()->GetDef(var_id);
+
+        if (IsLive(var_def)) {
+          AddToWorklist(inst);
+          return true;
+        }
+
+        // DebugDeclare Variable is not live. Find the value that was being
+        // stored to this variable. If it's live then create a new DebugValue
+        // with this value. Otherwise let it die in peace.
+        get_def_use_mgr()->ForEachUser(var_id, [this, var_id,
+                                                inst](Instruction* user) {
+          if (user->opcode() == spv::Op::OpStore) {
+            uint32_t stored_value_id = 0;
+            const uint32_t kStoreValueInIdx = 1;
+            stored_value_id = user->GetSingleWordInOperand(kStoreValueInIdx);
+            if (!IsLive(get_def_use_mgr()->GetDef(stored_value_id))) {
+              return true;
+            }
+
+            // value being stored is still live
+            Instruction* next_inst = inst->NextNode();
+            bool added =
+                context()->get_debug_info_mgr()->AddDebugValueForVariable(
+                    user, var_id, stored_value_id, inst);
+            if (added && next_inst) {
+              auto new_debug_value = next_inst->PreviousNode();
+              live_insts_.Set(new_debug_value->unique_id());
+            }
+          }
+          return true;
+        });
+      } else if (inst->GetShader100DebugOpcode() ==
+                 NonSemanticShaderDebugInfo100DebugValue) {
+        uint32_t var_operand_idx = kDebugValueValueInIdx;
+        uint32_t id = inst->GetSingleWordInOperand(var_operand_idx);
+        auto def = get_def_use_mgr()->GetDef(id);
+
+        if (IsLive(def)) {
+          AddToWorklist(inst);
+          return true;
+        }
+
+        // Value operand of DebugValue is not live
+        // Set Value to Undef of appropriate type
+        live_insts_.Set(inst->unique_id());
+
+        uint32_t type_id = def->type_id();
+        auto type_def = get_def_use_mgr()->GetDef(type_id);
+        AddToWorklist(type_def);
+
+        uint32_t undef_id = Type2Undef(type_id);
+        if (undef_id == 0) return false;
+
+        auto undef_inst = get_def_use_mgr()->GetDef(undef_id);
+        live_insts_.Set(undef_inst->unique_id());
+        inst->SetInOperand(var_operand_idx, {undef_id});
+        context()->get_def_use_mgr()->AnalyzeInstUse(inst);
+
+        id = inst->GetSingleWordInOperand(kDebugValueLocalVariableInIdx);
+        auto localVar = get_def_use_mgr()->GetDef(id);
+        AddToWorklist(localVar);
+
+        uint32_t expr_idx = kDebugValueExpressionInIdx;
+        id = inst->GetSingleWordInOperand(expr_idx);
+        auto expression = get_def_use_mgr()->GetDef(id);
+        AddToWorklist(expression);
+
+        for (uint32_t i = expr_idx + 1; i < inst->NumInOperands(); ++i) {
+          id = inst->GetSingleWordInOperand(i);
+          auto index_def = get_def_use_mgr()->GetDef(id);
+          if (index_def) {
+            AddToWorklist(index_def);
+          }
+        }
+
+        for (auto& line_inst : inst->dbg_line_insts()) {
+          if (line_inst.IsDebugLineInst()) {
+            AddToWorklist(&line_inst);
+          }
+        }
+      }
+      return true;
+    });
+
+    if (!succeeded) return Pass::Status::Failure;
+  }
+  return Pass::Status::SuccessWithoutChange;
+}
+
+Pass::Status AggressiveDCEPass::KillDeadInstructions(
     const Function* func, std::list<BasicBlock*>& structured_order) {
   bool modified = false;
   for (auto bi = structured_order.begin(); bi != structured_order.end();) {
@@ -306,6 +424,9 @@ bool AggressiveDCEPass::KillDeadInstructions(
           // Find an undef for the return value and make sure it gets kept by
           // the pass.
           auto undef_id = Type2Undef(func->type_id());
+          if (undef_id == 0) {
+            return Pass::Status::Failure;
+          }
           auto undef = get_def_use_mgr()->GetDef(undef_id);
           live_insts_.Set(undef->unique_id());
           merge_terminator->SetOpcode(spv::Op::OpReturnValue);
@@ -324,7 +445,8 @@ bool AggressiveDCEPass::KillDeadInstructions(
       ++bi;
     }
   }
-  return modified;
+  return modified ? Pass::Status::SuccessWithChange
+                  : Pass::Status::SuccessWithoutChange;
 }
 
 void AggressiveDCEPass::ProcessWorkList(Function* func) {
@@ -417,6 +539,24 @@ uint32_t AggressiveDCEPass::GetLoadedVariableFromNonFunctionCalls(
     case spv::Op::OpCopyMemorySized:
       return GetVariableId(
           inst->GetSingleWordInOperand(kCopyMemorySourceAddrInIdx));
+    case spv::Op::OpExtInst: {
+      if (inst->GetSingleWordInOperand(kExtInstSetInIdx) ==
+          context()->get_feature_mgr()->GetExtInstImportId_GLSLstd450()) {
+        auto ext_inst = inst->GetSingleWordInOperand(kExtInstOpInIdx);
+        switch (ext_inst) {
+          case GLSLstd450InterpolateAtCentroid:
+          case GLSLstd450InterpolateAtOffset:
+          case GLSLstd450InterpolateAtSample:
+            return inst->GetSingleWordInOperand(kInterpolantInIdx);
+        }
+      }
+      break;
+    }
+    case spv::Op::OpCooperativeMatrixLoadNV:
+    case spv::Op::OpCooperativeMatrixLoadKHR:
+    case spv::Op::OpCooperativeMatrixLoadTensorNV:
+      return GetVariableId(
+          inst->GetSingleWordInOperand(kCooperativeMatrixLoadSourceAddrInIdx));
     default:
       break;
   }
@@ -439,6 +579,9 @@ std::vector<uint32_t> AggressiveDCEPass::GetLoadedVariablesFromFunctionCall(
     const Instruction* inst) {
   assert(inst->opcode() == spv::Op::OpFunctionCall);
   std::vector<uint32_t> live_variables;
+  // NOTE: we should only be checking function call parameters here, not the
+  // function itself, however, `IsPtr` will trivially return false for
+  // OpFunction
   inst->ForEachInId([this, &live_variables](const uint32_t* operand_id) {
     if (!IsPtr(*operand_id)) return;
     uint32_t var_id = GetVariableId(*operand_id);
@@ -563,7 +706,7 @@ void AggressiveDCEPass::InitializeWorkList(
   }
 }
 
-void AggressiveDCEPass::InitializeModuleScopeLiveInstructions() {
+Pass::Status AggressiveDCEPass::InitializeModuleScopeLiveInstructions() {
   // Keep all execution modes.
   for (auto& exec : get_module()->execution_modes()) {
     AddToWorklist(&exec);
@@ -638,18 +781,26 @@ void AggressiveDCEPass::InitializeModuleScopeLiveInstructions() {
   }
   if (debug_global_seen) {
     auto dbg_none = context()->get_debug_info_mgr()->GetDebugInfoNone();
+    if (dbg_none == nullptr) {
+      return Pass::Status::Failure;
+    }
     AddToWorklist(dbg_none);
   }
 
-  // Add top level DebugInfo to worklist
+  // Add DebugInfo which should never be eliminated to worklist
   for (auto& dbg : get_module()->ext_inst_debuginfo()) {
     auto op = dbg.GetShader100DebugOpcode();
     if (op == NonSemanticShaderDebugInfo100DebugCompilationUnit ||
         op == NonSemanticShaderDebugInfo100DebugEntryPoint ||
-        op == NonSemanticShaderDebugInfo100DebugSourceContinued) {
+        op == NonSemanticShaderDebugInfo100DebugSource ||
+        op == NonSemanticShaderDebugInfo100DebugSourceContinued ||
+        op == NonSemanticShaderDebugInfo100DebugLocalVariable ||
+        op == NonSemanticShaderDebugInfo100DebugExpression ||
+        op == NonSemanticShaderDebugInfo100DebugOperation) {
       AddToWorklist(&dbg);
     }
   }
+  return Pass::Status::SuccessWithoutChange;
 }
 
 Pass::Status AggressiveDCEPass::ProcessImpl() {
@@ -677,7 +828,9 @@ Pass::Status AggressiveDCEPass::ProcessImpl() {
   // Eliminate Dead functions.
   bool modified = EliminateDeadFunctions();
 
-  InitializeModuleScopeLiveInstructions();
+  if (InitializeModuleScopeLiveInstructions() == Pass::Status::Failure) {
+    return Pass::Status::Failure;
+  }
 
   // Run |AggressiveDCE| on the remaining functions.  The order does not matter,
   // since |AggressiveDCE| is intra-procedural.  This can mean that function
@@ -685,7 +838,13 @@ Pass::Status AggressiveDCEPass::ProcessImpl() {
   // function will still be in the module after this pass.  We expect this to be
   // rare.
   for (Function& fp : *context()->module()) {
-    modified |= AggressiveDCE(&fp);
+    Pass::Status function_status = AggressiveDCE(&fp);
+    if (function_status == Pass::Status::Failure) {
+      return Pass::Status::Failure;
+    }
+    if (function_status == Pass::Status::SuccessWithChange) {
+      modified = true;
+    }
   }
 
   // If the decoration manager is kept live then the context will try to keep it
@@ -713,7 +872,9 @@ Pass::Status AggressiveDCEPass::ProcessImpl() {
 
   // Cleanup all CFG including all unreachable blocks.
   for (Function& fp : *context()->module()) {
-    modified |= CFGCleanup(&fp);
+    auto status = CFGCleanup(&fp);
+    if (status == Status::Failure) return Status::Failure;
+    if (status == Status::SuccessWithChange) modified = true;
   }
 
   return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
@@ -883,6 +1044,19 @@ bool AggressiveDCEPass::ProcessGlobalValues() {
       context()->AnalyzeUses(&dbg);
       continue;
     }
+    // Save debug build identifier even if no other instructions refer to it.
+    if (dbg.GetShader100DebugOpcode() ==
+        NonSemanticShaderDebugInfo100DebugBuildIdentifier) {
+      // The debug build identifier refers to other instructions that
+      // can potentially be removed, they also need to be kept alive.
+      dbg.ForEachInId([this](const uint32_t* id) {
+        Instruction* ref_inst = get_def_use_mgr()->GetDef(*id);
+        if (ref_inst) {
+          live_insts_.Set(ref_inst->unique_id());
+        }
+      });
+      continue;
+    }
     to_kill_.push_back(&dbg);
     modified = true;
   }
@@ -939,6 +1113,7 @@ Pass::Status AggressiveDCEPass::Process() {
 
 void AggressiveDCEPass::InitExtensions() {
   extensions_allowlist_.clear();
+
   extensions_allowlist_.insert({
       "SPV_AMD_shader_explicit_vertex_parameter",
       "SPV_AMD_shader_trinary_minmax",
@@ -981,11 +1156,13 @@ void AggressiveDCEPass::InitExtensions() {
       "SPV_NV_shader_image_footprint",
       "SPV_NV_shading_rate",
       "SPV_NV_mesh_shader",
+      "SPV_EXT_mesh_shader",
       "SPV_NV_ray_tracing",
       "SPV_KHR_ray_tracing",
       "SPV_KHR_ray_query",
       "SPV_EXT_fragment_invocation_density",
       "SPV_EXT_physical_storage_buffer",
+      "SPV_KHR_physical_storage_buffer",
       "SPV_KHR_terminate_invocation",
       "SPV_KHR_shader_clock",
       "SPV_KHR_vulkan_memory_model",
@@ -995,6 +1172,19 @@ void AggressiveDCEPass::InitExtensions() {
       "SPV_KHR_non_semantic_info",
       "SPV_KHR_uniform_group_instructions",
       "SPV_KHR_fragment_shader_barycentric",
+      "SPV_NV_bindless_texture",
+      "SPV_EXT_shader_atomic_float_add",
+      "SPV_EXT_fragment_shader_interlock",
+      "SPV_KHR_compute_shader_derivatives",
+      "SPV_NV_cooperative_matrix",
+      "SPV_KHR_cooperative_matrix",
+      "SPV_KHR_ray_tracing_position_fetch",
+      "SPV_KHR_fragment_shading_rate",
+      "SPV_KHR_quad_control",
+      "SPV_NV_shader_invocation_reorder",
+      "SPV_NV_cluster_acceleration_structure",
+      "SPV_NV_linear_swept_spheres",
+      "SPV_KHR_maximal_reconvergence",
   });
 }
 

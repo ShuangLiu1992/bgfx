@@ -72,7 +72,7 @@ static constexpr float M_XYZ2RGB[] =
 // Converts color representation from CIE XYZ to RGB color-space.
 Color xyzToRgb(const Color& xyz)
 {
-	Color rgb(bx::init::None);
+	Color rgb(bx::InitNone);
 	rgb.x = M_XYZ2RGB[0] * xyz.x + M_XYZ2RGB[3] * xyz.y + M_XYZ2RGB[6] * xyz.z;
 	rgb.y = M_XYZ2RGB[1] * xyz.x + M_XYZ2RGB[4] * xyz.y + M_XYZ2RGB[7] * xyz.z;
 	rgb.z = M_XYZ2RGB[2] * xyz.x + M_XYZ2RGB[5] * xyz.y + M_XYZ2RGB[8] * xyz.z;
@@ -333,7 +333,7 @@ struct ProceduralSky
 
 		bx::AllocatorI* allocator = entry::getAllocator();
 
-		ScreenPosVertex* vertices = (ScreenPosVertex*)BX_ALLOC(allocator
+		ScreenPosVertex* vertices = (ScreenPosVertex*)bx::alloc(allocator
 			, verticalCount * horizontalCount * sizeof(ScreenPosVertex)
 			);
 
@@ -347,7 +347,7 @@ struct ProceduralSky
 			}
 		}
 
-		uint16_t* indices = (uint16_t*)BX_ALLOC(allocator
+		uint16_t* indices = (uint16_t*)bx::alloc(allocator
 			, (verticalCount - 1) * (horizontalCount - 1) * 6 * sizeof(uint16_t)
 			);
 
@@ -369,8 +369,8 @@ struct ProceduralSky
 		m_vbh = bgfx::createVertexBuffer(bgfx::copy(vertices, sizeof(ScreenPosVertex) * verticalCount * horizontalCount), ScreenPosVertex::ms_layout);
 		m_ibh = bgfx::createIndexBuffer(bgfx::copy(indices, sizeof(uint16_t) * k));
 
-		BX_FREE(allocator, indices);
-		BX_FREE(allocator, vertices);
+		bx::free(allocator, indices);
+		bx::free(allocator, vertices);
 	}
 
 	void shutdown()
@@ -420,6 +420,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -446,10 +447,6 @@ public:
 		// Imgui.
 		imguiCreate();
 
-		m_timeOffset = bx::getHPCounter();
-		m_time = 0.0f;
-		m_timeScale = 1.0f;
-
 		s_texLightmap     = bgfx::createUniform("s_texLightmap",     bgfx::UniformType::Sampler);
 		u_sunLuminance    = bgfx::createUniform("u_sunLuminance",    bgfx::UniformType::Vec4);
 		u_skyLuminanceXYZ = bgfx::createUniform("u_skyLuminanceXYZ", bgfx::UniformType::Vec4);
@@ -471,6 +468,11 @@ public:
 		cameraSetHorizontalAngle(-bx::kPi / 3.0f);
 
 		m_turbidity = 2.15f;
+
+		m_time = 0.0f;
+		m_timeScale = 1.0f;
+		m_frameTime.reset();
+
 	}
 
 	virtual int shutdown() override
@@ -537,12 +539,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState))
 		{
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency());
-			const float deltaTime = float(frameTime / freq);
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			m_time += m_timeScale * deltaTime;
 			m_time = bx::mod(m_time, 24.0f);
 			m_sun.Update(m_time);
@@ -652,11 +651,11 @@ public:
 
 	entry::MouseState m_mouseState;
 
+	float m_turbidity;
+
 	float m_time;
 	float m_timeScale;
-	int64_t m_timeOffset;
-
-	float m_turbidity;
+	FrameTime m_frameTime;
 };
 
 } // namespace

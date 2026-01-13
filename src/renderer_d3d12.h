@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -20,26 +20,6 @@
 #   include <d3d12_x.h>
 #endif // BX_PLATFORM_XBOXONE
 
-#if defined(__MINGW32__) // BK - temp workaround for MinGW until I nuke d3dx12 usage.
-extern "C++" {
-#	if defined(__cpp_constexpr)        && __cpp_constexpr        >= 200704L \
-	&& defined(__cpp_inline_variables) && __cpp_inline_variables >= 201606L
-	__extension__ template<typename Ty>
-	constexpr const GUID& __mingw_uuidof();
-#	else
-	__extension__ template<typename Ty>
-	const GUID& __mingw_uuidof();
-#	endif // __cpp_*
-
-	template<>
-	const GUID& __mingw_uuidof<ID3D12Device>()
-	{
-		static const GUID IID_ID3D12Device0 = { 0x189819f1, 0x1db6, 0x4b57, { 0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7 } };
-		return IID_ID3D12Device0;
-	}
-}
-#endif // defined(__MINGW32__)
-
 #include "renderer.h"
 #include "renderer_d3d.h"
 #include "shader_dxbc.h"
@@ -50,7 +30,7 @@ extern "C++" {
 #if BGFX_CONFIG_DEBUG_ANNOTATION && !BX_PLATFORM_LINUX
 #	if BX_PLATFORM_WINDOWS || BX_PLATFORM_WINRT
 typedef struct PIXEventsThreadInfo* (WINAPI* PFN_PIX_GET_THREAD_INFO)();
-typedef uint64_t                    (WINAPI* PFN_PIX_EVENTS_REPLACE_BLOCK)(bool _getEarliestTime);
+typedef uint64_t                    (WINAPI* PFN_PIX_EVENTS_REPLACE_BLOCK)(PIXEventsThreadInfo* _threadInfo, bool _getEarliestTime);
 
 extern PFN_PIX_GET_THREAD_INFO      bgfx_PIXGetThreadInfo;
 extern PFN_PIX_EVENTS_REPLACE_BLOCK bgfx_PIXEventsReplaceBlock;
@@ -59,13 +39,13 @@ extern PFN_PIX_EVENTS_REPLACE_BLOCK bgfx_PIXEventsReplaceBlock;
 #		define PIXEventsReplaceBlock bgfx_PIXEventsReplaceBlock
 #	else
 extern "C" struct PIXEventsThreadInfo* WINAPI bgfx_PIXGetThreadInfo();
-extern "C" uint64_t                    WINAPI bgfx_PIXEventsReplaceBlock(bool _getEarliestTime);
+extern "C" uint64_t                    WINAPI bgfx_PIXEventsReplaceBlock(PIXEventsThreadInfo* _threadInfo, bool _getEarliestTime);
 #	endif // BX_PLATFORM_WINDOWS
 
 #	include <pix3.h>
 
-#	define _PIX3_BEGINEVENT(_commandList, _color, _name) PIXBeginEvent(_commandList, _color, _name)
-#	define _PIX3_SETMARKER(_commandList, _color, _name)  PIXSetMarker(_commandList, _color, _name)
+#	define _PIX3_BEGINEVENT(_commandList, _color, _name) PIXBeginEvent(_commandList, toPixColor(_color), _name)
+#	define _PIX3_SETMARKER(_commandList, _color, _name)  PIXSetMarker(_commandList, toPixColor(_color), _name)
 #	define _PIX3_ENDEVENT(_commandList)                  PIXEndEvent(_commandList)
 
 #	define PIX3_BEGINEVENT(_commandList, _color, _name) _PIX3_BEGINEVENT(_commandList, _color, _name)
@@ -97,8 +77,6 @@ extern "C" uint64_t                    WINAPI bgfx_PIXEventsReplaceBlock(bool _g
 
 namespace bgfx { namespace d3d12
 {
-	typedef HRESULT (WINAPI* PFN_D3D12_ENABLE_EXPERIMENTAL_FEATURES)(uint32_t _numFeatures, const IID* _iids, void* _configurationStructs, uint32_t* _configurationStructSizes);
-
 	struct Rdt
 	{
 		enum Enum
@@ -392,12 +370,14 @@ namespace bgfx { namespace d3d12
 
 	struct CommandQueueD3D12
 	{
+		static constexpr uint32_t kMaxCommandLists = 256;
+
 		CommandQueueD3D12()
 			: m_currentFence(0)
 			, m_completedFence(0)
 			, m_control(BX_COUNTOF(m_commandList) )
 		{
-			BX_STATIC_ASSERT(BX_COUNTOF(m_commandList) == BX_COUNTOF(m_release) );
+			static_assert(BX_COUNTOF(m_commandList) == BX_COUNTOF(m_release) );
 		}
 
 		void init(ID3D12Device* _device);
@@ -416,14 +396,57 @@ namespace bgfx { namespace d3d12
 			HANDLE m_event;
 		};
 
+		struct PipelineStats
+		{
+			PipelineStats()
+			{
+				reset();
+			}
+
+			void reset()
+			{
+				IAVertices    = 0;
+				IAPrimitives  = 0;
+				VSInvocations = 0;
+				CInvocations  = 0;
+				CPrimitives   = 0;
+				PSInvocations = 0;
+				CSInvocations = 0;
+			}
+
+			void add(const D3D12_QUERY_DATA_PIPELINE_STATISTICS& _stats)
+			{
+				IAVertices    += _stats.IAVertices;
+				IAPrimitives  += _stats.IAPrimitives;
+				VSInvocations += _stats.VSInvocations;
+				CInvocations  += _stats.CInvocations;
+				CPrimitives   += _stats.CPrimitives;
+				PSInvocations += _stats.PSInvocations;
+				CSInvocations += _stats.CSInvocations;
+			}
+
+			uint64_t IAVertices;
+			uint64_t IAPrimitives;
+			uint64_t VSInvocations;
+			uint64_t CInvocations;
+			uint64_t CPrimitives;
+			uint64_t PSInvocations;
+			uint64_t CSInvocations;
+		};
+
 		ID3D12CommandQueue* m_commandQueue;
 		uint64_t m_currentFence;
 		uint64_t m_completedFence;
 		ID3D12Fence* m_fence;
-		CommandList m_commandList[256];
+		CommandList m_commandList[kMaxCommandLists];
 		typedef stl::vector<ID3D12Resource*> ResourceArray;
-		ResourceArray m_release[256];
+		ResourceArray m_release[kMaxCommandLists];
 		bx::RingBufferControl m_control;
+
+		ID3D12Resource*  m_pipelineStatsReadBack;
+		ID3D12QueryHeap* m_pipelineStatsQueryHeap;
+		D3D12_QUERY_DATA_PIPELINE_STATISTICS* m_pipelineStats;
+		PipelineStats m_pipelineStatsSum;
 	};
 
 	struct BatchD3D12

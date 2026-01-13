@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -15,14 +15,6 @@ namespace bgfx
 #	define SHADERC_CONFIG_HLSL BX_PLATFORM_WINDOWS
 #endif // SHADERC_CONFIG_HLSL
 
-#include <alloca.h>
-#include <stdint.h>
-#include <string.h>
-#include <algorithm>
-#include <string>
-#include <vector>
-#include <unordered_map>
-
 #include <bx/bx.h>
 #include <bx/debug.h>
 #include <bx/commandline.h>
@@ -33,11 +25,24 @@ namespace bgfx
 #include <bx/file.h>
 #include "../../src/vertexlayout.h"
 
+#include <string.h>
+#include <algorithm>
+#include <string>
+#include <vector>
+#include <unordered_map>
+
 namespace bgfx
 {
 	extern bool g_verbose;
 
 	bx::StringView nextWord(bx::StringView& _parse);
+
+	constexpr uint16_t kAccessRead  = 0x8000;
+	constexpr uint16_t kAccessWrite = 0x4000;
+	constexpr uint16_t kAccessMask  = 0
+		| kAccessRead
+		| kAccessWrite
+		;
 
 	constexpr uint8_t kUniformFragmentBit  = 0x10;
 	constexpr uint8_t kUniformSamplerBit   = 0x20;
@@ -96,6 +101,7 @@ namespace bgfx
 		bool disasm;
 		bool raw;
 		bool preprocessOnly;
+		bool keepComments;
 		bool depends;
 
 		bool debugInformation;
@@ -124,6 +130,7 @@ namespace bgfx
 	bool compileMetalShader(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _writer, bx::WriterI* _messages);
 	bool compilePSSLShader(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _writer, bx::WriterI* _messages);
 	bool compileSPIRVShader(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _writer, bx::WriterI* _messages);
+	bool compileWgslShader(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _writer, bx::WriterI* _messages);
 
 	const char* getPsslPreamble();
 

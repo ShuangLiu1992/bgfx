@@ -1,5 +1,5 @@
 #
-# Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+# Copyright 2011-2025 Branimir Karadzic. All rights reserved.
 # License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
 #
 
@@ -15,13 +15,14 @@ ifndef TARGET
 .PHONY: all
 all:
 	@echo Usage: make TARGET=# [clean, all, rebuild]
-	@echo "  TARGET=0 (hlsl  - d3d9  / Windows only!)"
+	@echo "  TARGET=0 (hlsl  - d3d11 / Windows only!)"
 	@echo "  TARGET=1 (hlsl  - d3d11 / Windows only!)"
 	@echo "  TARGET=3 (essl  - android)"
 	@echo "  TARGET=4 (glsl)"
 	@echo "  TARGET=5 (metal)"
 	@echo "  TARGET=6 (pssl)"
 	@echo "  TARGET=7 (spirv)"
+	@echo "  TARGET=8 (wgsl)"
 
 .PHONY: build
 build:
@@ -52,26 +53,16 @@ else
 
 ADDITIONAL_INCLUDES?=
 
-ifeq ($(TARGET), 0)
-VS_FLAGS=--platform windows -p s_3_0 -O 3
-FS_FLAGS=--platform windows -p s_3_0 -O 3
-SHADER_PATH=shaders/dx9
-else
-ifeq ($(TARGET), 1)
+ifeq ($(TARGET), $(filter $(TARGET), 0 1))
 VS_FLAGS=--platform windows -p s_5_0 -O 3
 FS_FLAGS=--platform windows -p s_5_0 -O 3
 CS_FLAGS=--platform windows -p s_5_0 -O 1
 SHADER_PATH=shaders/dx11
 else
-ifeq ($(TARGET), 2)
-VS_FLAGS=--platform nacl
-FS_FLAGS=--platform nacl
-SHADER_PATH=shaders/essl
-else
-ifeq ($(TARGET), 3)
-VS_FLAGS=--platform android
-FS_FLAGS=--platform android
-CS_FLAGS=--platform android
+ifeq ($(TARGET), $(filter $(TARGET), 2 3))
+VS_FLAGS=--platform android -p 100_es
+FS_FLAGS=--platform android -p 100_es
+CS_FLAGS=--platform android -p 300_es
 SHADER_PATH=shaders/essl
 else
 ifeq ($(TARGET), 4)
@@ -97,7 +88,12 @@ VS_FLAGS=--platform linux -p spirv
 FS_FLAGS=--platform linux -p spirv
 CS_FLAGS=--platform linux -p spirv
 SHADER_PATH=shaders/spirv
-endif
+else
+ifeq ($(TARGET), 8)
+VS_FLAGS=--platform linux -p wgsl
+FS_FLAGS=--platform linux -p wgsl
+CS_FLAGS=--platform linux -p wgsl
+SHADER_PATH=shaders/wgsl
 endif
 endif
 endif

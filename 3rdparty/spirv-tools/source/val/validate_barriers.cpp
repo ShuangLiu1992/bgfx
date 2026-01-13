@@ -16,11 +16,8 @@
 
 #include <string>
 
-#include "source/diagnostic.h"
 #include "source/opcode.h"
 #include "source/spirv_constant.h"
-#include "source/spirv_target_env.h"
-#include "source/util/bitutils.h"
 #include "source/val/instruction.h"
 #include "source/val/validate.h"
 #include "source/val/validate_memory_semantics.h"
@@ -48,10 +45,10 @@ spv_result_t BarriersPass(ValidationState_t& _, const Instruction* inst) {
                       model != spv::ExecutionModel::MeshNV) {
                     if (message) {
                       *message =
-                          "OpControlBarrier requires one of the following "
-                          "Execution "
-                          "Models: TessellationControl, GLCompute, Kernel, "
-                          "MeshNV or TaskNV";
+                          "In SPIR-V 1.2 or earlier, OpControlBarrier requires "
+                          "one of the following "
+                          "Execution Models: TessellationControl, GLCompute, "
+                          "Kernel, MeshNV or TaskNV";
                     }
                     return false;
                   }

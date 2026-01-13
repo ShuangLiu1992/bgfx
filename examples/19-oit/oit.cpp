@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -171,6 +171,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -240,7 +241,7 @@ public:
 			&& bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::R16F,    BGFX_TEXTURE_RT)
 			;
 
-		m_timeOffset = bx::getHPCounter();
+		m_frameTime.reset();
 	}
 
 	int shutdown() override
@@ -274,6 +275,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float time = bx::toSeconds<float>(m_frameTime.getDurationTime() );
+
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -343,10 +347,6 @@ public:
 				// Set view 0 default viewport.
 				bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height) );
 				bgfx::setViewRect(1, 0, 0, uint16_t(m_width), uint16_t(m_height) );
-
-				int64_t now = bx::getHPCounter();
-				const double freq = double(bx::getHPFrequency() );
-				float time = (float)( (now-m_timeOffset)/freq);
 
 				// Reference(s):
 				// - Weighted, Blended Order-Independent Transparency
@@ -531,8 +531,6 @@ public:
 
 	entry::MouseState m_mouseState;
 
-	int64_t m_timeOffset;
-
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle  m_ibh;
 
@@ -548,6 +546,8 @@ public:
 
 	bgfx::TextureHandle m_fbtextures[2];
 	bgfx::FrameBufferHandle m_fbh;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

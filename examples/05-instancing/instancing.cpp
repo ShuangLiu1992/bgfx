@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -84,6 +84,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -118,9 +119,9 @@ public:
 		m_program = loadProgram("vs_instancing", "fs_instancing");
 		m_program_non_instanced = loadProgram("vs_cubes", "fs_cubes");
 
-		m_timeOffset = bx::getHPCounter();
-
 		imguiCreate();
+
+		m_frameTime.reset();
 	}
 
 	int shutdown() override
@@ -143,6 +144,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float time = bx::toSeconds<float>(m_frameTime.getDurationTime() );
+
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -177,9 +181,9 @@ public:
 
 			ImGui::Text("%d draw calls", bgfx::getStats()->numDraw);
 
-			ImGui::PushEnabled(instancingSupported);
+			ImGui::BeginDisabled(!instancingSupported);
 			ImGui::Checkbox("Use Instancing", &m_useInstancing);
-			ImGui::PopEnabled();
+			ImGui::EndDisabled();
 
 			ImGui::Text("Grid Side Size:");
 			ImGui::SliderInt("##size", (int*)&m_sideSize, 1, 512);
@@ -204,8 +208,6 @@ public:
 			// This dummy draw call is here to make sure that view 0 is cleared
 			// if no other draw calls are submitted to view 0.
 			bgfx::touch(0);
-
-			float time = (float)( (bx::getHPCounter() - m_timeOffset)/double(bx::getHPFrequency() ) );
 
 			if (!instancingSupported)
 			{
@@ -340,7 +342,7 @@ public:
 	bgfx::ProgramHandle m_program;
 	bgfx::ProgramHandle m_program_non_instanced;
 
-	int64_t m_timeOffset;
+	FrameTime m_frameTime;
 };
 
 } // namespace

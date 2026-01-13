@@ -1,19 +1,18 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
 #ifndef BGFX_RENDERER_GL_H_HEADER_GUARD
 #define BGFX_RENDERER_GL_H_HEADER_GUARD
 
-#define BGFX_USE_EGL (BGFX_CONFIG_RENDERER_OPENGLES && (0 \
-	|| BX_PLATFORM_ANDROID                                \
-	|| BX_PLATFORM_BSD                                    \
-	|| BX_PLATFORM_LINUX                                  \
-	|| BX_PLATFORM_NX                                     \
-	|| BX_PLATFORM_RPI                                    \
-	|| BX_PLATFORM_WINDOWS                                \
-	) )
+#define BGFX_USE_EGL ( (BGFX_CONFIG_RENDERER_OPENGL || BGFX_CONFIG_RENDERER_OPENGLES) && (0 \
+	|| BX_PLATFORM_ANDROID                                                                  \
+	|| BX_PLATFORM_LINUX                                                                    \
+	|| BX_PLATFORM_NX                                                                       \
+	|| BX_PLATFORM_RPI                                                                      \
+	) )                                                                                     \
+	|| (BGFX_CONFIG_RENDERER_OPENGLES && BX_PLATFORM_WINDOWS)
 
 #define BGFX_USE_HTML5 (BGFX_CONFIG_RENDERER_OPENGLES && (0 \
 	|| BX_PLATFORM_EMSCRIPTEN                               \
@@ -23,15 +22,8 @@
 	|| BX_PLATFORM_WINDOWS                              \
 	) )
 
-#define BGFX_USE_GLX (BGFX_CONFIG_RENDERER_OPENGL && (0 \
-	|| BX_PLATFORM_BSD                                  \
-	|| BX_PLATFORM_LINUX                                \
-	) )
-
 #define BGFX_USE_GL_DYNAMIC_LIB (0 \
-	|| BX_PLATFORM_BSD             \
 	|| BX_PLATFORM_LINUX           \
-	|| BX_PLATFORM_OSX             \
 	|| BX_PLATFORM_WINDOWS         \
 	)
 
@@ -68,25 +60,12 @@
 #if BGFX_CONFIG_RENDERER_OPENGL
 #	if BGFX_CONFIG_RENDERER_OPENGL >= 31
 #		include <gl/glcorearb.h>
-#		if BX_PLATFORM_OSX
-#			define GL_ARB_shader_objects // OSX collsion with GLhandleARB in gltypes.h
-#		endif // BX_PLATFORM_OSX
 #	else
-#		if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
+#		if BX_PLATFORM_LINUX
 #			define GL_PROTOTYPES
 #			define GL_GLEXT_LEGACY
 #			include <GL/gl.h>
 #			undef GL_PROTOTYPES
-#		elif BX_PLATFORM_OSX
-#			define GL_GLEXT_LEGACY
-#			define long ptrdiff_t
-#			include <OpenGL/gl.h>
-#			undef long
-#			undef GL_VERSION_1_2
-#			undef GL_VERSION_1_3
-#			undef GL_VERSION_1_4
-#			undef GL_VERSION_1_5
-#			undef GL_VERSION_2_0
 #		elif BX_PLATFORM_WINDOWS
 #			ifndef WIN32_LEAN_AND_MEAN
 #				define WIN32_LEAN_AND_MEAN
@@ -103,23 +82,13 @@
 #elif BGFX_CONFIG_RENDERER_OPENGLES
 typedef double GLdouble;
 #	if BGFX_CONFIG_RENDERER_OPENGLES < 30
-#		if BX_PLATFORM_IOS
-#			include <OpenGLES/ES2/gl.h>
-#			include <OpenGLES/ES2/glext.h>
-//#define GL_UNSIGNED_INT_10_10_10_2_OES                          0x8DF6
-#define GL_UNSIGNED_INT_2_10_10_10_REV_EXT                      0x8368
-#define GL_TEXTURE_3D_OES                                       0x806F
-#define GL_SAMPLER_3D_OES                                       0x8B5F
-#define GL_TEXTURE_WRAP_R_OES                                   0x8072
-#define GL_PROGRAM_BINARY_LENGTH_OES                            0x8741
-#		else
-#			include <GLES2/gl2platform.h>
-#			include <GLES2/gl2.h>
-#			include <GLES2/gl2ext.h>
-#		endif // BX_PLATFORM_
+#		include <GLES2/gl2platform.h>
+#		include <GLES2/gl2.h>
+#		include <GLES2/gl2ext.h>
 typedef int64_t  GLint64;
 typedef uint64_t GLuint64;
 #		define GL_PROGRAM_BINARY_LENGTH GL_PROGRAM_BINARY_LENGTH_OES
+#		define GL_NUM_PROGRAM_BINARY_FORMATS GL_NUM_PROGRAM_BINARY_FORMATS_OES
 #		define GL_HALF_FLOAT GL_HALF_FLOAT_OES
 #		define GL_RGBA8 GL_RGBA8_OES
 #		define GL_UNSIGNED_INT_2_10_10_10_REV GL_UNSIGNED_INT_2_10_10_10_REV_EXT
@@ -149,14 +118,6 @@ typedef uint64_t GLuint64;
 #		endif // BGFX_CONFIG_RENDERER_OPENGLES
 #		include <GLES2/gl2ext.h>
 #	endif // BGFX_CONFIG_RENDERER_
-
-#	if BGFX_USE_EGL
-#		include "glcontext_egl.h"
-#	endif // BGFX_USE_EGL
-
-#	if BGFX_USE_HTML5
-#		include "glcontext_html5.h"
-#	endif // BGFX_USE_EGL
 
 #endif // BGFX_CONFIG_RENDERER_OPENGL
 
@@ -460,6 +421,22 @@ typedef uint64_t GLuint64;
 #	define GL_ETC1_RGB8_OES 0x8D64
 #endif // GL_ETC1_RGB8_OES
 
+#ifndef GL_COMPRESSED_R11_EAC
+#	define GL_COMPRESSED_R11_EAC 0x9270
+#endif // GL_COMPRESSED_R11_EAC
+
+#ifndef GL_COMPRESSED_SIGNED_R11_EAC
+#	define GL_COMPRESSED_SIGNED_R11_EAC 0x9271
+#endif // GL_COMPRESSED_SIGNED_R11_EAC
+
+#ifndef GL_COMPRESSED_RG11_EAC
+#	define GL_COMPRESSED_RG11_EAC 0x9272
+#endif // GL_COMPRESSED_RG11_EAC
+
+#ifndef GL_COMPRESSED_SIGNED_RG11_EAC
+#	define GL_COMPRESSED_SIGNED_RG11_EAC 0x9273
+#endif // GL_COMPRESSED_SIGNED_RG11_EAC
+
 #ifndef GL_COMPRESSED_RGB8_ETC2
 #	define GL_COMPRESSED_RGB8_ETC2 0x9274
 #endif // GL_COMPRESSED_RGB8_ETC2
@@ -467,6 +444,10 @@ typedef uint64_t GLuint64;
 #ifndef GL_COMPRESSED_RGBA8_ETC2_EAC
 #	define GL_COMPRESSED_RGBA8_ETC2_EAC 0x9278
 #endif // GL_COMPRESSED_RGBA8_ETC2_EAC
+
+#ifndef GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
+#	define GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC 0x9279
+#endif // GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
 
 #ifndef GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2
 #	define GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 0x9276
@@ -1168,17 +1149,13 @@ typedef uint64_t GLuint64;
 #	define GL_TEXTURE_LOD_BIAS 0x8501
 #endif // GL_TEXTURE_LOD_BIAS
 
-#if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
-#	include "glcontext_glx.h"
-#elif BX_PLATFORM_OSX
-#	include "glcontext_nsgl.h"
-#elif BX_PLATFORM_IOS
-#	include "glcontext_eagl.h"
-#endif // BX_PLATFORM_
-
-#if BGFX_USE_WGL
+#if BGFX_USE_EGL
+#	include "glcontext_egl.h"
+#elif BGFX_USE_HTML5
+#	include "glcontext_html5.h"
+#elif BGFX_USE_WGL
 #	include "glcontext_wgl.h"
-#endif // BGFX_USE_WGL
+#endif // BGFX_USE_*
 
 #ifndef GL_APIENTRY
 #	define GL_APIENTRY APIENTRY
@@ -1206,14 +1183,14 @@ namespace bgfx { namespace gl
 
 	const char* glEnumName(GLenum _enum);
 
-#define _GL_CHECK(_check, _call) \
-				BX_MACRO_BLOCK_BEGIN \
-					/*BX_TRACE(#_call);*/ \
-					_call; \
-					GLenum gl_err = glGetError(); \
-					_check(0 == gl_err, #_call "; GL error 0x%x: %s", gl_err, glEnumName(gl_err) ); \
-					BX_UNUSED(gl_err); \
-				BX_MACRO_BLOCK_END
+#define _GL_CHECK(_check, _call)                                                                    \
+	BX_MACRO_BLOCK_BEGIN                                                                \
+		/*BX_TRACE(#_call);*/                                                           \
+		_call;                                                                          \
+		GLenum gl_err = glGetError();                                                   \
+		_check(0 == gl_err, #_call "; GL error 0x%x: %s", gl_err, glEnumName(gl_err) ); \
+		BX_UNUSED(gl_err);                                                              \
+	BX_MACRO_BLOCK_END
 
 #define IGNORE_GL_ERROR_CHECK(...) BX_NOOP()
 
@@ -1536,7 +1513,7 @@ namespace bgfx { namespace gl
 		}
 
 		void create(uint8_t _num, const Attachment* _attachment);
-		void create(uint16_t _denseIdx, void* _nwh, uint32_t _width, uint32_t _height, TextureFormat::Enum _format, TextureFormat::Enum _depthFormat);
+		void create(uint16_t _denseIdx, void* _nwh, uint32_t _width, uint32_t _height);
 		void postReset();
 		uint16_t destroy();
 		void resolve();
@@ -1668,7 +1645,7 @@ namespace bgfx { namespace gl
 
 		bool update()
 		{
-			if (0 != m_control.available() )
+			if (0 != m_control.getNumUsed() )
 			{
 				Query& query = m_query[m_control.m_read];
 

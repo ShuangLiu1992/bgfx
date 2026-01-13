@@ -36,10 +36,10 @@ namespace
 #define MAX_INSTANCE_COUNT 25
 #define MAX_LIGHTS_COUNT 5
 
-#define VIEWID_RANGE1_PASS0     1
-#define VIEWID_RANGE1_RT_PASS1  2
-#define VIEWID_RANGE15_PASS2    3
-#define VIEWID_RANGE1_PASS3    20
+constexpr bgfx::ViewId kRange1Pass0   =  1;
+constexpr bgfx::ViewId kRange1RtPass1 =  2;
+constexpr bgfx::ViewId kRange15Pass2  =  3;
+constexpr bgfx::ViewId kRange1Pass3   = 20;
 
 struct PosNormalTexcoordVertex
 {
@@ -65,16 +65,17 @@ struct PosNormalTexcoordVertex
 
 bgfx::VertexLayout PosNormalTexcoordVertex::ms_layout;
 
-static const float s_texcoord = 50.0f;
-static PosNormalTexcoordVertex s_hplaneVertices[] =
+constexpr float kTexCoord = 50.0f;
+
+static const PosNormalTexcoordVertex s_hplaneVertices[] =
 {
-	{ -1.0f, 0.0f,  1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), s_texcoord, s_texcoord },
-	{  1.0f, 0.0f,  1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), s_texcoord, 0.0f       },
-	{ -1.0f, 0.0f, -1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), 0.0f,       s_texcoord },
-	{  1.0f, 0.0f, -1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), 0.0f,       0.0f       },
+	{ -1.0f, 0.0f,  1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), kTexCoord, kTexCoord },
+	{  1.0f, 0.0f,  1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), kTexCoord, 0.0f      },
+	{ -1.0f, 0.0f, -1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), 0.0f,      kTexCoord },
+	{  1.0f, 0.0f, -1.0f, encodeNormalRgba8(0.0f, 1.0f, 0.0f), 0.0f,      0.0f      },
 };
 
-static PosNormalTexcoordVertex s_vplaneVertices[] =
+static const PosNormalTexcoordVertex s_vplaneVertices[] =
 {
 	{ -1.0f,  1.0f, 0.0f, encodeNormalRgba8(0.0f, 0.0f, -1.0f), 1.0f, 1.0f },
 	{  1.0f,  1.0f, 0.0f, encodeNormalRgba8(0.0f, 0.0f, -1.0f), 1.0f, 0.0f },
@@ -87,15 +88,6 @@ static const uint16_t s_planeIndices[] =
 	0, 1, 2,
 	1, 3, 2,
 };
-
-static bool s_oglNdc = false;
-static float s_texelHalf = 0.0f;
-
-static uint32_t s_viewMask = 0;
-
-static bgfx::UniformHandle s_texColor;
-static bgfx::UniformHandle s_texStencil;
-static bgfx::FrameBufferHandle s_stencilFb;
 
 void setViewClearMask(uint32_t _viewMask, uint8_t _flags, uint32_t _rgba, float _depth, uint8_t _stencil)
 {
@@ -184,6 +176,11 @@ struct Uniforms
 		m_params.m_ambientPass   = 1.0f;
 		m_params.m_lightingPass  = 1.0f;
 		m_params.m_texelHalf     = 0.0f;
+
+		m_svparams.m_useStencilTex = 0.0f;
+		m_svparams.m_dfail         = 0.0f;
+		m_svparams.m_unused10      = 0.0f;
+		m_svparams.m_unused11      = 0.0f;
 
 		m_ambient[0] = 0.05f;
 		m_ambient[1] = 0.05f;
@@ -324,8 +321,6 @@ struct Uniforms
 	bgfx::UniformHandle u_lightRgbInnerR;
 	bgfx::UniformHandle u_virtualLightPos_extrusionDist;
 };
-
-static Uniforms s_uniforms;
 
 struct RenderState
 {
@@ -544,6 +539,8 @@ struct ClearValues
 	uint8_t  m_clearStencil;
 };
 
+static uint32_t s_viewMask = 0;
+
 void submit(bgfx::ViewId _id, bgfx::ProgramHandle _handle, int32_t _depth = 0)
 {
 	bgfx::submit(_id, _handle, _depth);
@@ -708,7 +705,7 @@ uint16_t weldVertices(WeldedVertex* _output, const bgfx::VertexLayout& _layout, 
 	uint16_t numVertices = 0;
 
 	const uint32_t size = sizeof(uint16_t)*(hashSize + _num);
-	uint16_t* hashTable = (uint16_t*)alloca(size);
+	uint16_t* hashTable = (uint16_t*)BX_STACK_ALLOC(size);
 	bx::memSet(hashTable, 0xff, size);
 
 	uint16_t* next = hashTable + hashSize;
@@ -1021,6 +1018,11 @@ struct Mesh
 	GroupArray m_groups;
 };
 
+static bgfx::UniformHandle s_texColor;
+static bgfx::UniformHandle s_texStencil;
+static bgfx::FrameBufferHandle s_stencilFb;
+static Uniforms s_uniforms;
+
 struct Model
 {
 	Model()
@@ -1157,7 +1159,6 @@ struct ShadowVolumeAllocator
 	uint8_t* m_ptr;
 	bool m_firstPage;
 };
-static ShadowVolumeAllocator s_svAllocator;
 
 struct ShadowVolumeImpl
 {
@@ -1238,7 +1239,8 @@ void shadowVolumeLightTransform(
 }
 
 void shadowVolumeCreate(
-	  ShadowVolume& _shadowVolume
+	  ShadowVolume& _outShadowVolume
+	, ShadowVolumeAllocator& _svAllocator
 	, Group& _group
 	, uint16_t _stride
 	, const float* _mtx
@@ -1275,15 +1277,15 @@ void shadowVolumeCreate(
 
 	bool cap = (ShadowVolumeImpl::DepthFail == _impl);
 
-	VertexData* verticesSide    = (VertexData*) s_svAllocator.alloc(20000 * sizeof(VertexData) );
-	uint16_t*   indicesSide     = (uint16_t*)   s_svAllocator.alloc(20000 * 3*sizeof(uint16_t) );
+	VertexData* verticesSide    = (VertexData*)_svAllocator.alloc(20000 * sizeof(VertexData) );
+	uint16_t*   indicesSide     = (uint16_t  *)_svAllocator.alloc(20000 * 3*sizeof(uint16_t) );
 	uint16_t*   indicesFrontCap = 0;
 	uint16_t*   indicesBackCap  = 0;
 
 	if (cap)
 	{
-		indicesFrontCap = (uint16_t*)s_svAllocator.alloc(80000 * 3*sizeof(uint16_t) );
-		indicesBackCap  = (uint16_t*)s_svAllocator.alloc(80000 * 3*sizeof(uint16_t) );
+		indicesFrontCap = (uint16_t*)_svAllocator.alloc(80000 * 3*sizeof(uint16_t) );
+		indicesBackCap  = (uint16_t*)_svAllocator.alloc(80000 * 3*sizeof(uint16_t) );
 	}
 
 	uint32_t vsideI    = 0;
@@ -1555,11 +1557,11 @@ void shadowVolumeCreate(
 		.end();
 
 	//fill the structure
-	_shadowVolume.m_numVertices = vsideI;
-	_shadowVolume.m_numIndices  = sideI + frontCapI + backCapI;
-	_shadowVolume.m_mtx         = _mtx;
-	_shadowVolume.m_lightPos    = _light;
-	_shadowVolume.m_cap         = cap;
+	_outShadowVolume.m_numVertices = vsideI;
+	_outShadowVolume.m_numIndices  = sideI + frontCapI + backCapI;
+	_outShadowVolume.m_mtx         = _mtx;
+	_outShadowVolume.m_lightPos    = _light;
+	_outShadowVolume.m_cap         = cap;
 
 	const bgfx::Memory* mem;
 
@@ -1568,33 +1570,33 @@ void shadowVolumeCreate(
 	uint32_t isize = sideI * sizeof(uint16_t);
 
 	mem = bgfx::makeRef(verticesSide, vsize);
-	_shadowVolume.m_vbSides = bgfx::createVertexBuffer(mem, layout);
+	_outShadowVolume.m_vbSides = bgfx::createVertexBuffer(mem, layout);
 
 	mem = bgfx::makeRef(indicesSide, isize);
-	_shadowVolume.m_ibSides = bgfx::createIndexBuffer(mem);
+	_outShadowVolume.m_ibSides = bgfx::createIndexBuffer(mem);
 
 	// bgfx::destroy*Buffer doesn't actually destroy buffers now.
 	// Instead, these bgfx::destroy*Buffer commands get queued to be executed after the end of the next frame.
-	bgfx::destroy(_shadowVolume.m_vbSides);
-	bgfx::destroy(_shadowVolume.m_ibSides);
+	bgfx::destroy(_outShadowVolume.m_vbSides);
+	bgfx::destroy(_outShadowVolume.m_ibSides);
 
 	if (cap)
 	{
 		//front cap
 		isize = frontCapI * sizeof(uint16_t);
 		mem = bgfx::makeRef(indicesFrontCap, isize);
-		_shadowVolume.m_ibFrontCap = bgfx::createIndexBuffer(mem);
+		_outShadowVolume.m_ibFrontCap = bgfx::createIndexBuffer(mem);
 
 		//gets destroyed after the end of the next frame
-		bgfx::destroy(_shadowVolume.m_ibFrontCap);
+		bgfx::destroy(_outShadowVolume.m_ibFrontCap);
 
 		//back cap
 		isize = backCapI * sizeof(uint16_t);
 		mem = bgfx::makeRef(indicesBackCap, isize);
-		_shadowVolume.m_ibBackCap = bgfx::createIndexBuffer(mem);
+		_outShadowVolume.m_ibBackCap = bgfx::createIndexBuffer(mem);
 
 		//gets destroyed after the end of the next frame
-		bgfx::destroy(_shadowVolume.m_ibBackCap);
+		bgfx::destroy(_outShadowVolume.m_ibBackCap);
 	}
 }
 
@@ -1786,6 +1788,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_viewState.m_width;
 		init.resolution.height = m_viewState.m_height;
 		init.resolution.reset  = m_reset;
@@ -1793,10 +1796,6 @@ public:
 
 		// Enable debug text.
 		bgfx::setDebug(m_debug);
-
-		const bgfx::Caps* caps = bgfx::getCaps();
-		s_oglNdc    = caps->homogeneousDepth;
-		s_texelHalf = bgfx::RendererType::Direct3D9 == caps->rendererType ? 0.5f : 0.0f;
 
 		// Imgui
 		imguiCreate();
@@ -1911,8 +1910,7 @@ public:
 			m_lightRgbInnerR[ii][3] = rgbInnerR[index][3];
 		}
 
-		m_profTime = 0;
-		m_timeOffset = bx::getHPCounter();
+		m_frameTime.reset();
 
 		m_numShadowVolumeVertices = 0;
 		m_numShadowVolumeIndices  = 0;
@@ -1995,6 +1993,10 @@ public:
 	{
 		if (!entry::processEvents(m_viewState.m_width, m_viewState.m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float time      = bx::toSeconds<float>(m_frameTime.getDurationTime() );
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() ) ;
+			s_uniforms.m_time = time;
 			s_uniforms.submitConstUniforms();
 
 			// Set projection matrices.
@@ -2020,24 +2022,15 @@ public:
 				s_stencilFb = bgfx::createFrameBuffer(BX_COUNTOF(fbtextures), fbtextures, true);
 			}
 
-			// Time.
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const double toMs = 1000.0/freq;
-			float time = (float)( (now - m_timeOffset)/double(bx::getHPFrequency() ) );
-			const float deltaTime = float(frameTime/freq);
-			s_uniforms.m_time = time;
-
 			// Update camera.
 			cameraUpdate(deltaTime, m_mouseState, ImGui::MouseOverArea() );
 
 			// Set view and projection matrix for view 0.
 			{
 				cameraGetViewMtx(m_viewState.m_view);
-				bx::mtxProj(m_viewState.m_proj, fov, aspect, nearPlane, farPlane, s_oglNdc);
+
+				const bgfx::Caps* caps = bgfx::getCaps();
+				bx::mtxProj(m_viewState.m_proj, fov, aspect, nearPlane, farPlane, caps->homogeneousDepth);
 			}
 
 			imguiBeginFrame(
@@ -2150,7 +2143,7 @@ public:
 				ImGui::SliderInt("Instance count", &m_instanceCount, 1, MAX_INSTANCE_COUNT);
 			}
 
-			ImGui::Text("CPU Time: %7.1f [ms]", double(m_profTime)*toMs);
+			ImGui::Text("CPU Time: %7.1f [ms]", bx::toMilliseconds<double>(m_profTime) );
 			ImGui::Text("Volume Vertices: %5.uk", m_numShadowVolumeVertices/1000);
 			ImGui::Text("Volume Indices: %6.uk", m_numShadowVolumeIndices/1000);
 			m_numShadowVolumeVertices = 0;
@@ -2186,7 +2179,7 @@ public:
 			//update settings
 			s_uniforms.m_params.m_ambientPass     = 1.0f;
 			s_uniforms.m_params.m_lightingPass    = 1.0f;
-			s_uniforms.m_params.m_texelHalf       = s_texelHalf;
+			s_uniforms.m_params.m_texelHalf       = 0.0f;
 			s_uniforms.m_svparams.m_useStencilTex = float(m_useStencilTexture);
 
 			//set picked bunny model
@@ -2487,42 +2480,42 @@ public:
 			// Draw shadow casters.
 			for (uint8_t ii = 0; ii < shadowCastersCount[m_currentScene]; ++ii)
 			{
-				shadowCasters[m_currentScene][ii].submit(VIEWID_RANGE1_PASS0, drawAmbient);
+				shadowCasters[m_currentScene][ii].submit(kRange1Pass0, drawAmbient);
 			}
 
 			// Draw shadow receivers.
 			for (uint8_t ii = 0; ii < shadowReceiversCount[m_currentScene]; ++ii)
 			{
-				shadowReceivers[m_currentScene][ii].submit(VIEWID_RANGE1_PASS0, drawAmbient);
+				shadowReceivers[m_currentScene][ii].submit(kRange1Pass0, drawAmbient);
 			}
 
 			// Using stencil texture requires rendering to separate render target. first pass is building depth buffer.
 			if (m_useStencilTexture)
 			{
-				bgfx::setViewClear(VIEWID_RANGE1_RT_PASS1, BGFX_CLEAR_DEPTH, 0x00000000, 1.0f, 0);
-				bgfx::setViewFrameBuffer(VIEWID_RANGE1_RT_PASS1, s_stencilFb);
+				bgfx::setViewClear(kRange1RtPass1, BGFX_CLEAR_DEPTH, 0x00000000, 1.0f, 0);
+				bgfx::setViewFrameBuffer(kRange1RtPass1, s_stencilFb);
 
 				const RenderState& renderState = s_renderStates[RenderState::ShadowVolume_UsingStencilTexture_BuildDepth];
 
 				for (uint8_t ii = 0; ii < shadowCastersCount[m_currentScene]; ++ii)
 				{
-					shadowCasters[m_currentScene][ii].submit(VIEWID_RANGE1_RT_PASS1, renderState);
+					shadowCasters[m_currentScene][ii].submit(kRange1RtPass1, renderState);
 				}
 
 				for (uint8_t ii = 0; ii < shadowReceiversCount[m_currentScene]; ++ii)
 				{
-					shadowReceivers[m_currentScene][ii].submit(VIEWID_RANGE1_RT_PASS1, renderState);
+					shadowReceivers[m_currentScene][ii].submit(kRange1RtPass1, renderState);
 				}
 			}
 
-			m_profTime = bx::getHPCounter();
+			m_profTime = bx::getNow();
 
 			/**
 			 * For each light:
 			 * 1. Compute and draw shadow volume to stencil buffer
 			 * 2. Draw diffuse with stencil test
 			 */
-			for (uint8_t ii = 0, viewId = VIEWID_RANGE15_PASS2; ii < m_numLights; ++ii, ++viewId)
+			for (uint8_t ii = 0, viewId = kRange15Pass2; ii < m_numLights; ++ii, ++viewId)
 			{
 				const float* lightPos = lightPosRadius[ii];
 
@@ -2615,7 +2608,9 @@ public:
 
 						// Create shadow volume.
 						ShadowVolume shadowVolume;
-						shadowVolumeCreate(shadowVolume
+						shadowVolumeCreate(
+							  shadowVolume
+							, m_svAllocator
 							, group
 							, stride
 							, shadowVolumeMtx
@@ -2684,7 +2679,7 @@ public:
 							bgfx::setVertexBuffer(0, shadowVolume.m_vbSides);
 							bgfx::setIndexBuffer(shadowVolume.m_ibSides);
 							::setRenderState(renderState);
-							::submit(VIEWID_RANGE1_PASS3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Side]);
+							::submit(kRange1Pass3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Side]);
 
 							if (shadowVolume.m_cap)
 							{
@@ -2693,14 +2688,14 @@ public:
 								bgfx::setVertexBuffer(0, group.m_vbh);
 								bgfx::setIndexBuffer(shadowVolume.m_ibFrontCap);
 								::setRenderState(renderState);
-								::submit(VIEWID_RANGE1_PASS3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Front]);
+								::submit(kRange1Pass3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Front]);
 
 								s_uniforms.submitPerDrawUniforms();
 								bgfx::setTransform(shadowVolumeMtx);
 								bgfx::setVertexBuffer(0, group.m_vbh);
 								bgfx::setIndexBuffer(shadowVolume.m_ibBackCap);
 								::setRenderState(renderState);
-								::submit(VIEWID_RANGE1_PASS3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Back]);
+								::submit(kRange1Pass3, m_svProgs[ShadowVolumeProgramType::Color][ShadowVolumePart::Back]);
 							}
 						}
 					}
@@ -2731,7 +2726,7 @@ public:
 				}
 			}
 
-			m_profTime = bx::getHPCounter() - m_profTime;
+			m_profTime = bx::getNow() - m_profTime;
 
 			// Lights.
 			const float lightScale[3] = { 1.5f, 1.5f, 1.5f };
@@ -2742,7 +2737,7 @@ public:
 				float lightMtx[16];
 				mtxBillboard(lightMtx, m_viewState.m_view, lightPosRadius[ii], lightScale);
 
-				m_vplaneModel.submit(VIEWID_RANGE1_PASS3, lightMtx, s_renderStates[RenderState::Custom_BlendLightTexture]);
+				m_vplaneModel.submit(kRange1Pass3, lightMtx, s_renderStates[RenderState::Custom_BlendLightTexture]);
 			}
 
 			// Setup view rect and transform for all used views.
@@ -2755,7 +2750,7 @@ public:
 			bgfx::frame();
 
 			// Swap memory pages.
-			s_svAllocator.swap();
+			m_svAllocator.swap();
 
 			// Reset clear values.
 			setViewClearMask(UINT32_MAX
@@ -2813,8 +2808,8 @@ public:
 
 	float m_lightRgbInnerR[MAX_LIGHTS_COUNT][4];
 
-	int64_t m_profTime;
-	int64_t m_timeOffset;
+	bx::Ticks m_profTime = bx::InitZero;
+	FrameTime m_frameTime;
 
 	uint32_t m_numShadowVolumeVertices;
 	uint32_t m_numShadowVolumeIndices;
@@ -2832,6 +2827,7 @@ public:
 	bool m_drawShadowVolumes;
 	ShadowVolumeImpl::Enum      m_shadowVolumeImpl;
 	ShadowVolumeAlgorithm::Enum m_shadowVolumeAlgorithm;
+	ShadowVolumeAllocator       m_svAllocator;
 
 	LightPattern m_lightPattern;
 	MeshChoice   m_currentMesh;

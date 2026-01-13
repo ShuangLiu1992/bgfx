@@ -6,9 +6,11 @@ API Reference
 
     If you're just getting started with bgfx, you might get more out of these simple walkthroughs for how to use bgfx's API:
 
-    - `Hello, bgfx! <https://dev.to/pperon/hello-bgfx-4dka>`_
-    - `bgfx-minimal-example <https://github.com/jpcy/bgfx-minimal-example#bgfx-minimal-example>`_
-    - `Using the bgfx library with C++ on Ubuntu <https://www.sandeepnambiar.com/getting-started-with-bgfx/>`_
+    - `Hello, bgfx! (tutorial) <https://dev.to/pperon/hello-bgfx-4dka>`_
+    - `bgfx-minimal-example (repo on GitHub) <https://github.com/jpcy/bgfx-minimal-example#bgfx-minimal-example>`_
+    - `Using the bgfx library with C++ on Ubuntu (tutorial) <https://www.sandeepnambiar.com/getting-started-with-bgfx/>`_
+    - `Getting started with BGFX (playlist on Youtube) <https://www.youtube.com/playlist?list=PLwFtWV3PS6y_oTOfHjbE0Zk8N9_QuQlHy>`_
+    - `Getting started with BGFX (repo on GitHub) <https://github.com/gamecoder-nz/Getting-Started-With-BGFX>`_
 
 General
 -------
@@ -46,11 +48,11 @@ Reset
 .. doxygenfunction:: bgfx::reset
 
 .. doxygendefine:: BGFX_RESET_NONE
-.. doxygendefine:: BGFX_RESET_FULLSCREEN
 .. doxygendefine:: BGFX_RESET_MSAA_X2
 .. doxygendefine:: BGFX_RESET_MSAA_X4
 .. doxygendefine:: BGFX_RESET_MSAA_X8
 .. doxygendefine:: BGFX_RESET_MSAA_X16
+.. doxygendefine:: BGFX_RESET_FULLSCREEN
 .. doxygendefine:: BGFX_RESET_VSYNC
 .. doxygendefine:: BGFX_RESET_MAXANISOTROPY
 .. doxygendefine:: BGFX_RESET_CAPTURE
@@ -60,6 +62,8 @@ Reset
 .. doxygendefine:: BGFX_RESET_HDR10
 .. doxygendefine:: BGFX_RESET_HIDPI
 .. doxygendefine:: BGFX_RESET_DEPTH_CLAMP
+.. doxygendefine:: BGFX_RESET_SUSPEND
+.. doxygendefine:: BGFX_RESET_TRANSPARENT_BACKBUFFER
 
 Frame
 *****
@@ -131,19 +135,22 @@ Available Caps
 .. doxygendefine:: BGFX_CAPS_INDEX32
 .. doxygendefine:: BGFX_CAPS_INSTANCING
 .. doxygendefine:: BGFX_CAPS_OCCLUSION_QUERY
+.. doxygendefine:: BGFX_CAPS_PRIMITIVE_ID
 .. doxygendefine:: BGFX_CAPS_RENDERER_MULTITHREADED
 .. doxygendefine:: BGFX_CAPS_SWAP_CHAIN
-.. doxygendefine:: BGFX_CAPS_TEXTURE_2D_ARRAY
-.. doxygendefine:: BGFX_CAPS_TEXTURE_3D
 .. doxygendefine:: BGFX_CAPS_TEXTURE_BLIT
-.. doxygendefine:: BGFX_CAPS_TEXTURE_COMPARE_ALL
 .. doxygendefine:: BGFX_CAPS_TEXTURE_COMPARE_LEQUAL
 .. doxygendefine:: BGFX_CAPS_TEXTURE_CUBE_ARRAY
 .. doxygendefine:: BGFX_CAPS_TEXTURE_DIRECT_ACCESS
 .. doxygendefine:: BGFX_CAPS_TEXTURE_READ_BACK
+.. doxygendefine:: BGFX_CAPS_TEXTURE_2D_ARRAY
+.. doxygendefine:: BGFX_CAPS_TEXTURE_3D
+.. doxygendefine:: BGFX_CAPS_TRANSPARENT_BACKBUFFER
+.. doxygendefine:: BGFX_CAPS_VARIABLE_RATE_SHADING
 .. doxygendefine:: BGFX_CAPS_VERTEX_ATTRIB_HALF
 .. doxygendefine:: BGFX_CAPS_VERTEX_ATTRIB_UINT10
 .. doxygendefine:: BGFX_CAPS_VERTEX_ID
+.. doxygendefine:: BGFX_CAPS_VIEWPORT_LAYER_ARRAY
 
 Statistics
 **********
@@ -180,7 +187,7 @@ It is only necessary to use these APIs in conjunction with creating windows.
 .. doxygenstruct:: bgfx::InternalData
     :members:
 
-.. doxygenfunction:: bgfx::overrideInternal(TextureHandle _handle, uintptr_t _ptr)
+.. doxygenfunction:: bgfx::overrideInternal(TextureHandle _handle, uintptr_t _ptr, uint16_t _layerIndex = 0)
 .. doxygenfunction:: bgfx::overrideInternal(TextureHandle _handle, uint16_t _width, uint16_t _height, uint8_t _numMips, TextureFormat::Enum _format, uint64_t _flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE)
 
 Miscellaneous
@@ -240,6 +247,11 @@ A View's state is preserved between frames.
 .. doxygenfunction:: bgfx::setViewFrameBuffer
 .. doxygenfunction:: bgfx::setViewTransform
 .. doxygenfunction:: bgfx::setViewOrder
+
+.. doxygenstruct:: bgfx::ShadingRate
+    :members:
+
+.. doxygenfunction:: bgfx::setViewShadingRate
 .. doxygenfunction:: bgfx::resetView
 
 Encoder
@@ -316,7 +328,7 @@ State Flags
 .. doxygendefine:: BGFX_STATE_BLEND_FACTOR
 .. doxygendefine:: BGFX_STATE_BLEND_INV_FACTOR
 
-**Blend Equaation**
+**Blend Equation**
 
 .. doxygendefine:: BGFX_STATE_BLEND_EQUATION_ADD
 .. doxygendefine:: BGFX_STATE_BLEND_EQUATION_SUB
@@ -417,6 +429,13 @@ Textures
 
 .. doxygenfunction:: bgfx::setTexture(uint8_t, UniformHandle, TextureHandle, uint32_t)
 
+Uniforms
+********
+
+.. doxygenfunction:: bgfx::setUniform
+.. doxygenfunction:: bgfx::setViewUniform
+.. doxygenfunction:: bgfx::setFrameUniform
+
 Submit
 ******
 
@@ -424,8 +443,8 @@ In Views, all draw commands are executed **after** blit and compute commands.
 
 .. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
 .. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, OcclusionQueryHandle _occlusionQuery, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
-.. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint16_t _start = 0, uint16_t _num = 1, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
-.. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint16_t _start, IndexBufferHandle _numHandle, uint32_t _numIndex = 0, uint16_t _numMax = UINT16_MAX, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
+.. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint32_t _start = 0, uint32_t _num = 1, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
+.. doxygenfunction:: bgfx::submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint32_t _start, IndexBufferHandle _numHandle, uint32_t _numIndex = 0, uint32_t _numMax = UINT32_MAX, uint32_t _depth = 0, uint8_t _flags = BGFX_DISCARD_ALL)
 
 
 Compute
@@ -456,7 +475,7 @@ Dispatch
 In Views, all draw commands are executed **after** blit and compute commands.
 
 .. doxygenfunction:: bgfx::dispatch(ViewId _id, ProgramHandle _handle, uint32_t _numX = 1, uint32_t _numY = 1, uint32_t _numZ = 1, uint8_t _flags = BGFX_DISCARD_ALL)
-.. doxygenfunction:: bgfx::dispatch(ViewId _id, ProgramHandle _handle, IndirectBufferHandle _indirectHandle, uint16_t _start = 0, uint16_t _num = 1, uint8_t _flags = BGFX_DISCARD_ALL)
+.. doxygenfunction:: bgfx::dispatch(ViewId _id, ProgramHandle _handle, IndirectBufferHandle _indirectHandle, uint32_t _start = 0, uint32_t _num = 1, uint8_t _flags = BGFX_DISCARD_ALL)
 
 Blit
 ~~~~
@@ -479,6 +498,10 @@ Resources
 Shaders and Programs
 ~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+
+    Shaders must be compiled with offline command line too shaderc.
+
 .. doxygenfunction:: bgfx::createShader
 .. doxygenfunction:: bgfx::getShaderUniforms
 .. doxygenfunction:: bgfx::destroy(ShaderHandle _handle)
@@ -489,15 +512,21 @@ Shaders and Programs
 Uniforms
 ~~~~~~~~
 
-.. doxygenfunction:: bgfx::createUniform
-.. doxygenfunction:: bgfx::getUniformInfo
-.. doxygenfunction:: bgfx::destroy(UniformHandle _handle)
-
 .. doxygenstruct:: bgfx::UniformType
     :members:
 
+.. doxygenfunction:: bgfx::createUniform(const char* _name, UniformType::Enum, uint16_t)
+
+.. doxygenstruct:: bgfx::UniformFreq
+    :members:
+
+.. doxygenfunction:: bgfx::createUniform(const char* _name, UniformFreq::Enum, UniformType::Enum, uint16_t)
+
 .. doxygenstruct:: bgfx::UniformInfo
     :members:
+
+.. doxygenfunction:: bgfx::getUniformInfo
+.. doxygenfunction:: bgfx::destroy(UniformHandle _handle)
 
 Vertex Buffers
 ~~~~~~~~~~~~~~
@@ -543,6 +572,20 @@ Textures
 
 .. doxygenstruct:: bgfx::TextureFormat
     :members:
+
+**Texture Flags**
+
+.. doxygendefine:: BGFX_TEXTURE_MSAA_SAMPLE
+.. doxygendefine:: BGFX_TEXTURE_RT
+.. doxygendefine:: BGFX_TEXTURE_COMPUTE_WRITE
+.. doxygendefine:: BGFX_TEXTURE_SRGB
+.. doxygendefine:: BGFX_TEXTURE_BLIT_DST
+.. doxygendefine:: BGFX_TEXTURE_READ_BACK
+.. doxygendefine:: BGFX_TEXTURE_RT_MSAA_X2
+.. doxygendefine:: BGFX_TEXTURE_RT_MSAA_X4
+.. doxygendefine:: BGFX_TEXTURE_RT_MSAA_X8
+.. doxygendefine:: BGFX_TEXTURE_RT_MSAA_X16
+.. doxygendefine:: BGFX_TEXTURE_RT_WRITE_ONLY
 
 .. doxygenfunction:: bgfx::isTextureValid
 

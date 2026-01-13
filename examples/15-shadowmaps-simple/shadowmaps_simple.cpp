@@ -80,6 +80,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -171,9 +172,9 @@ public:
 		const float aspect = float(int32_t(m_width) ) / float(int32_t(m_height) );
 		bx::mtxProj(m_proj, 60.0f, aspect, 0.1f, 1000.0f, bgfx::getCaps()->homogeneousDepth);
 
-		m_timeOffset = bx::getHPCounter();
-
 		imguiCreate();
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -210,6 +211,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float time = bx::toSeconds<float>(m_frameTime.getDurationTime() );
+
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -248,10 +252,6 @@ public:
 			ImGui::End();
 
 			imguiEndFrame();
-
-			int64_t now = bx::getHPCounter();
-			const double freq = double(bx::getHPFrequency() );
-			float time = float( (now-m_timeOffset)/freq);
 
 			if (!bgfx::isValid(m_shadowMapFB)
 			||  shadowSamplerModeChanged)
@@ -512,7 +512,7 @@ public:
 	float m_view[16];
 	float m_proj[16];
 
-	int64_t m_timeOffset;
+	FrameTime m_frameTime;
 };
 
 } // namespace

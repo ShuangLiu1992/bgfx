@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -10,14 +10,20 @@
 #include <bx/thread.h>
 #include <bx/file.h>
 
-#include <unistd.h>
-
 #include <android/input.h>
 #include <android/log.h>
 #include <android/looper.h>
 #include <android/window.h>
 #include <android_native_app_glue.h>
 #include <android/native_window.h>
+
+extern "C"
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include <android_native_app_glue.c>
+#pragma GCC diagnostic pop
+} // extern "C"
 
 namespace entry
 {
@@ -183,9 +189,10 @@ namespace entry
 
 			while (0 == m_app->destroyRequested)
 			{
-				int32_t num;
 				android_poll_source* source;
-				/*int32_t id =*/ ALooper_pollAll(-1, NULL, &num, (void**)&source);
+				int32_t result = ALooper_pollOnce(-1, NULL, NULL, reinterpret_cast<void**>(&source));
+
+				BX_ASSERT(ALOOPER_POLL_ERROR != result, "ALooper_pollOnce returned an error.");
 
 				if (NULL != source)
 				{
@@ -544,13 +551,24 @@ namespace entry
 		return NULL;
 	}
 
+	bgfx::NativeWindowHandleType::Enum getNativeWindowHandleType()
+	{
+		return bgfx::NativeWindowHandleType::Default;
+	}
+
 	int32_t MainThreadEntry::threadFunc(bx::Thread* _thread, void* _userData)
 	{
 		BX_UNUSED(_thread);
 
+		int32_t result = chdir("/sdcard/bgfx/examples/runtime");
+		BX_ASSERT(0 == result
+			, "Failed to chdir to directory (errno: %d, android.permission.WRITE_EXTERNAL_STORAGE?)."
+			, errno
+			);
+
 		MainThreadEntry* self = (MainThreadEntry*)_userData;
-//		PostMessage(s_ctx.m_hwnd, WM_QUIT, 0, 0);
-		return main(self->m_argc, self->m_argv);
+		result = main(self->m_argc, self->m_argv);
+		return result;
 	}
 
 } // namespace entry

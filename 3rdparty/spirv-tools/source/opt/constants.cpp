@@ -14,7 +14,6 @@
 
 #include "source/opt/constants.h"
 
-#include <unordered_map>
 #include <vector>
 
 #include "source/opt/ir_context.h"
@@ -316,6 +315,7 @@ const Constant* ConstantManager::GetConstantFromInst(const Instruction* inst) {
     case spv::Op::OpConstant:
     case spv::Op::OpConstantComposite:
     case spv::Op::OpSpecConstantComposite:
+    case spv::Op::OpSpecConstantCompositeReplicateEXT:
       break;
     default:
       return nullptr;
@@ -436,6 +436,8 @@ const Constant* ConstantManager::GetNumericVectorConstantWithWords(
     words_per_element = float_type->width() / 32;
   else if (const auto* int_type = element_type->AsInteger())
     words_per_element = int_type->width() / 32;
+  else if (element_type->AsBool() != nullptr)
+    words_per_element = 1;
 
   if (words_per_element != 1 && words_per_element != 2) return nullptr;
 
@@ -460,7 +462,9 @@ const Constant* ConstantManager::GetNumericVectorConstantWithWords(
 
 uint32_t ConstantManager::GetFloatConstId(float val) {
   const Constant* c = GetFloatConst(val);
-  return GetDefiningInstruction(c)->result_id();
+  Instruction* inst = GetDefiningInstruction(c);
+  if (inst == nullptr) return 0;
+  return inst->result_id();
 }
 
 const Constant* ConstantManager::GetFloatConst(float val) {
@@ -472,7 +476,9 @@ const Constant* ConstantManager::GetFloatConst(float val) {
 
 uint32_t ConstantManager::GetDoubleConstId(double val) {
   const Constant* c = GetDoubleConst(val);
-  return GetDefiningInstruction(c)->result_id();
+  Instruction* inst = GetDefiningInstruction(c);
+  if (inst == nullptr) return 0;
+  return inst->result_id();
 }
 
 const Constant* ConstantManager::GetDoubleConst(double val) {
@@ -488,6 +494,31 @@ uint32_t ConstantManager::GetSIntConstId(int32_t val) {
   return GetDefiningInstruction(c)->result_id();
 }
 
+const Constant* ConstantManager::GetIntConst(uint64_t val, int32_t bitWidth,
+                                             bool isSigned) {
+  Type* int_type = context()->get_type_mgr()->GetIntType(bitWidth, isSigned);
+
+  if (isSigned) {
+    // Sign extend the value.
+    int32_t num_of_bit_to_ignore = 64 - bitWidth;
+    val = static_cast<int64_t>(val << num_of_bit_to_ignore) >>
+          num_of_bit_to_ignore;
+  } else if (bitWidth < 64) {
+    // Clear the upper bit that are not used.
+    uint64_t mask = ((1ull << bitWidth) - 1);
+    val &= mask;
+  }
+
+  if (bitWidth <= 32) {
+    return GetConstant(int_type, {static_cast<uint32_t>(val)});
+  }
+
+  // If the value is more than 32-bit, we need to split the operands into two
+  // 32-bit integers.
+  return GetConstant(
+      int_type, {static_cast<uint32_t>(val), static_cast<uint32_t>(val >> 32)});
+}
+
 uint32_t ConstantManager::GetUIntConstId(uint32_t val) {
   Type* uint_type = context()->get_type_mgr()->GetUIntType();
   const Constant* c = GetConstant(uint_type, {val});
@@ -497,6 +528,28 @@ uint32_t ConstantManager::GetUIntConstId(uint32_t val) {
 uint32_t ConstantManager::GetNullConstId(const Type* type) {
   const Constant* c = GetConstant(type, {});
   return GetDefiningInstruction(c)->result_id();
+}
+
+const Constant* ConstantManager::GenerateIntegerConstant(
+    const analysis::Integer* integer_type, uint64_t result) {
+  assert(integer_type != nullptr);
+
+  std::vector<uint32_t> words;
+  if (integer_type->width() == 64) {
+    // In the 64-bit case, two words are needed to represent the value.
+    words = {static_cast<uint32_t>(result),
+             static_cast<uint32_t>(result >> 32)};
+  } else {
+    // In all other cases, only a single word is needed.
+    assert(integer_type->width() <= 32);
+    if (integer_type->IsSigned()) {
+      result = utils::SignExtendValue(result, integer_type->width());
+    } else {
+      result = utils::ZeroExtendValue(result, integer_type->width());
+    }
+    words = {static_cast<uint32_t>(result)};
+  }
+  return GetConstant(integer_type, words);
 }
 
 std::vector<const analysis::Constant*> Constant::GetVectorComponents(

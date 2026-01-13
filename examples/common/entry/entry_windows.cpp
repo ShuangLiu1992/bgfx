@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -132,7 +132,7 @@ namespace entry
 
 		void update(EventQueue& _eventQueue)
 		{
-			int64_t now = bx::getHPCounter();
+			const int64_t now = bx::getHPCounter();
 			static int64_t next = now;
 
 			if (now < next)
@@ -508,7 +508,7 @@ namespace entry
 			bgfx::renderFrame();
 
 			bx::Thread thread;
-			thread.init(mte.threadFunc, &mte);
+			thread.init(mte.threadFunc, &mte, 0, "Entry Thread");
 			m_init = true;
 
 			m_eventQueue.postSizeEvent(findHandle(m_hwnd[0]), m_width, m_height);
@@ -851,14 +851,18 @@ namespace entry
 
 						if (utf16[0] >= 0xD800 && utf16[0] <= 0xDBFF) {
 							m_surrogate = utf16[0];
-						} else {
+						}
+						else
+						{
 							int utf16_len;
 							if (utf16[0] >= 0xDC00 && utf16[0] <= 0xDFFF) {
 								utf16[1] = utf16[0];
 								utf16[0] = m_surrogate;
 								m_surrogate = 0;
 								utf16_len = 2;
-							} else {
+							}
+							else
+							{
 								utf16_len = 1;
 							}
 
@@ -1167,6 +1171,11 @@ namespace entry
 	void* getNativeDisplayHandle()
 	{
 		return NULL;
+	}
+
+	bgfx::NativeWindowHandleType::Enum getNativeWindowHandleType()
+	{
+		return bgfx::NativeWindowHandleType::Default;
 	}
 
 	int32_t MainThreadEntry::threadFunc(bx::Thread* /*_thread*/, void* _userData)

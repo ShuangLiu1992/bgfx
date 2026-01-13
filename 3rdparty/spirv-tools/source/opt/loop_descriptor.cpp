@@ -15,19 +15,17 @@
 #include "source/opt/loop_descriptor.h"
 
 #include <algorithm>
-#include <iostream>
 #include <limits>
 #include <stack>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "source/opt/cfg.h"
 #include "source/opt/constants.h"
 #include "source/opt/dominator_tree.h"
-#include "source/opt/ir_builder.h"
 #include "source/opt/ir_context.h"
 #include "source/opt/iterator.h"
+#include "source/opt/pass.h"
 #include "source/opt/tree_iterator.h"
 #include "source/util/make_unique.h"
 
@@ -281,6 +279,9 @@ BasicBlock* Loop::GetOrCreatePreHeaderBlock() {
 
   CFG* cfg = context_->cfg();
   loop_header_ = cfg->SplitLoopHeader(loop_header_);
+  if (loop_header_ == nullptr) {
+    return nullptr;
+  }
   return loop_preheader_;
 }
 
@@ -453,25 +454,20 @@ bool Loop::IsLCSSA() const {
   return true;
 }
 
-bool Loop::ShouldHoistInstruction(IRContext* context, Instruction* inst) {
-  return AreAllOperandsOutsideLoop(context, inst) &&
-         inst->IsOpcodeCodeMotionSafe();
+bool Loop::ShouldHoistInstruction(const Instruction& inst) const {
+  return inst.IsOpcodeCodeMotionSafe() && AreAllOperandsOutsideLoop(inst) &&
+         (!inst.IsLoad() || inst.IsReadOnlyLoad());
 }
 
-bool Loop::AreAllOperandsOutsideLoop(IRContext* context, Instruction* inst) {
-  analysis::DefUseManager* def_use_mgr = context->get_def_use_mgr();
-  bool all_outside_loop = true;
+bool Loop::AreAllOperandsOutsideLoop(const Instruction& inst) const {
+  analysis::DefUseManager* def_use_mgr = GetContext()->get_def_use_mgr();
 
-  const std::function<void(uint32_t*)> operand_outside_loop =
-      [this, &def_use_mgr, &all_outside_loop](uint32_t* id) {
-        if (this->IsInsideLoop(def_use_mgr->GetDef(*id))) {
-          all_outside_loop = false;
-          return;
-        }
+  const std::function<bool(const uint32_t*)> operand_outside_loop =
+      [this, &def_use_mgr](const uint32_t* id) {
+        return !this->IsInsideLoop(def_use_mgr->GetDef(*id));
       };
 
-  inst->ForEachInId(operand_outside_loop);
-  return all_outside_loop;
+  return inst.WhileEachInId(operand_outside_loop);
 }
 
 void Loop::ComputeLoopStructuredOrder(
@@ -928,18 +924,19 @@ Instruction* Loop::FindConditionVariable(
   return induction;
 }
 
-bool LoopDescriptor::CreatePreHeaderBlocksIfMissing() {
-  auto modified = false;
+LoopDescriptor::Status LoopDescriptor::CreatePreHeaderBlocksIfMissing() {
+  bool modified = false;
 
   for (auto& loop : *this) {
     if (!loop.GetPreHeaderBlock()) {
+      if (!loop.GetOrCreatePreHeaderBlock()) {
+        return Status::Failure;
+      }
       modified = true;
-      // TODO(1841): Handle failure to create pre-header.
-      loop.GetOrCreatePreHeaderBlock();
     }
   }
 
-  return modified;
+  return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
 }
 
 // Add and remove loops which have been marked for addition and removal to

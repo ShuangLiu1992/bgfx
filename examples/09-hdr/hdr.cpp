@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -10,8 +10,6 @@
 
 namespace
 {
-
-static float s_texelHalf = 0.0f;
 
 struct PosColorTexCoord0Vertex
 {
@@ -37,7 +35,7 @@ struct PosColorTexCoord0Vertex
 
 bgfx::VertexLayout PosColorTexCoord0Vertex::ms_layout;
 
-void screenSpaceQuad(float _textureWidth, float _textureHeight, bool _originBottomLeft = false, float _width = 1.0f, float _height = 1.0f)
+void screenSpaceQuad(bool _originBottomLeft = false, float _width = 1.0f, float _height = 1.0f)
 {
 	if (3 == bgfx::getAvailTransientVertexBuffer(3, PosColorTexCoord0Vertex::ms_layout) )
 	{
@@ -52,13 +50,11 @@ void screenSpaceQuad(float _textureWidth, float _textureHeight, bool _originBott
 		const float miny = 0.0f;
 		const float maxy = _height*2.0f;
 
-		const float texelHalfW = s_texelHalf/_textureWidth;
-		const float texelHalfH = s_texelHalf/_textureHeight;
-		const float minu = -1.0f + texelHalfW;
-		const float maxu =  1.0f + texelHalfW;
+		const float minu = -1.0f;
+		const float maxu =  1.0f;
 
-		float minv = texelHalfH;
-		float maxv = 2.0f + texelHalfH;
+		float minv = 0.0f;
+		float maxv = 2.0f;
 
 		if (_originBottomLeft)
 		{
@@ -107,8 +103,8 @@ void setOffsets2x2Lum(bgfx::UniformHandle _handle, uint32_t _width, uint32_t _he
 	{
 		for (uint32_t xx = 0; xx < 3; ++xx)
 		{
-			offsets[num][0] = (xx - s_texelHalf) * du;
-			offsets[num][1] = (yy - s_texelHalf) * dv;
+			offsets[num][0] = xx * du;
+			offsets[num][1] = yy * dv;
 			++num;
 		}
 	}
@@ -128,8 +124,8 @@ void setOffsets4x4Lum(bgfx::UniformHandle _handle, uint32_t _width, uint32_t _he
 	{
 		for (uint32_t xx = 0; xx < 4; ++xx)
 		{
-			offsets[num][0] = (xx - 1.0f - s_texelHalf) * du;
-			offsets[num][1] = (yy - 1.0f - s_texelHalf) * dv;
+			offsets[num][0] = (xx - 1.0f) * du;
+			offsets[num][1] = (yy - 1.0f) * dv;
 			++num;
 		}
 	}
@@ -159,6 +155,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -190,8 +187,10 @@ public:
 		s_texLum    = bgfx::createUniform("s_texLum",   bgfx::UniformType::Sampler);
 		s_texBlur   = bgfx::createUniform("s_texBlur",  bgfx::UniformType::Sampler);
 		u_mtx       = bgfx::createUniform("u_mtx",      bgfx::UniformType::Mat4);
-		u_tonemap   = bgfx::createUniform("u_tonemap",  bgfx::UniformType::Vec4);
 		u_offset    = bgfx::createUniform("u_offset",   bgfx::UniformType::Vec4, 16);
+
+		// Tonemap value will be updated once per frame.
+		u_tonemap   = bgfx::createUniform("u_tonemap",  bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4);
 
 		m_mesh = meshLoad("meshes/bunny.bin");
 
@@ -203,13 +202,23 @@ public:
 		m_lum[3] = bgfx::createFrameBuffer(  4,   4, bgfx::TextureFormat::BGRA8);
 		m_lum[4] = bgfx::createFrameBuffer(  1,   1, bgfx::TextureFormat::BGRA8);
 
+		bgfx::setName(m_lum[0], "Luminance 0");
+		bgfx::setName(m_lum[1], "Luminance 1");
+		bgfx::setName(m_lum[2], "Luminance 2");
+		bgfx::setName(m_lum[3], "Luminance 3");
+		bgfx::setName(m_lum[4], "Luminance 4");
+
 		m_bright = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Half,   bgfx::TextureFormat::BGRA8);
 		m_blur   = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Eighth, bgfx::TextureFormat::BGRA8);
+
+		bgfx::setName(m_bright, "Bright");
+		bgfx::setName(m_blur, "Blur");
 
 		m_lumBgra8 = 0;
 		if ( (BGFX_CAPS_TEXTURE_BLIT|BGFX_CAPS_TEXTURE_READ_BACK) == (bgfx::getCaps()->supported & (BGFX_CAPS_TEXTURE_BLIT|BGFX_CAPS_TEXTURE_READ_BACK) ) )
 		{
 			m_rb = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_BLIT_DST|BGFX_TEXTURE_READ_BACK);
+			bgfx::setName(m_rb, "Read Back Texture");
 		}
 		else
 		{
@@ -220,7 +229,6 @@ public:
 		imguiCreate();
 
 		m_caps = bgfx::getCaps();
-		s_texelHalf = bgfx::RendererType::Direct3D9 == m_caps->rendererType ? 0.5f : 0.0f;
 
 		m_oldWidth  = 0;
 		m_oldHeight = 0;
@@ -233,7 +241,8 @@ public:
 
 		m_scrollArea = 0;
 
-		m_time = 0.0f;
+		m_time = 0;
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -286,6 +295,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			if (!bgfx::isValid(m_fbh)
 			||  m_oldWidth  != m_width
 			||  m_oldHeight != m_height
@@ -345,11 +357,11 @@ public:
 			showExampleDialog(this);
 
 			ImGui::SetNextWindowPos(
-				  ImVec2(m_width - m_width / 5.0f - 10.0f, 10.0f)
+				  ImVec2(m_width - m_width / 5.0f - 40.0f, 10.0f)
 				, ImGuiCond_FirstUseEver
 				);
 			ImGui::SetNextWindowSize(
-				  ImVec2(m_width / 5.0f, m_height / 2.0f)
+				  ImVec2(m_width / 5.0f + 30.0f, m_height / 2.0f)
 				, ImGuiCond_FirstUseEver
 				);
 			ImGui::Begin("Settings"
@@ -366,11 +378,34 @@ public:
 
 			if (bgfx::isValid(m_rb) )
 			{
-				union { uint32_t color; uint8_t bgra[4]; } cast = { m_lumBgra8 };
-				float exponent = cast.bgra[3]/255.0f * 255.0f - 128.0f;
-				float lumAvg   = cast.bgra[2]/255.0f * bx::exp2(exponent);
+				struct Packed { uint8_t bgra[4]; } arr = bx::bitCast<Packed>(m_lumBgra8);
+				float exponent = arr.bgra[3] / 255.0f * 255.0f - 128.0f;
+				float lumAvg = arr.bgra[2] / 255.0f * bx::exp2(exponent);
+
+				ImGui::BeginDisabled(true);
 				ImGui::SliderFloat("Lum Avg", &lumAvg, 0.0f, 1.0f);
+				ImGui::EndDisabled();
 			}
+
+			const bgfx::Caps* caps = bgfx::getCaps();
+
+			static const char* s_shadingRateName[] =
+			{
+				"1x1",
+				"1x2",
+				"2x1",
+				"2x2",
+				"2x4",
+				"4x2",
+				"4x4",
+			};
+			static_assert(bgfx::ShadingRate::Count == BX_COUNTOF(s_shadingRateName) );
+
+			static bgfx::ShadingRate::Enum shadingRate = bgfx::ShadingRate::Rate1x1;
+
+			ImGui::BeginDisabled(0 == (caps->supported & BGFX_CAPS_VARIABLE_RATE_SHADING) );
+			ImGui::Combo("Shading Rate", (int*)&shadingRate, s_shadingRateName, BX_COUNTOF(s_shadingRateName) );
+			ImGui::EndDisabled();
 
 			ImGui::End();
 
@@ -380,13 +415,7 @@ public:
 			// if no other draw calls are submitted to view 0.
 			bgfx::touch(0);
 
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-
-			m_time += (float)(frameTime*m_speed/freq);
+			m_time += m_speed * deltaTime;
 
 			bgfx::ViewId shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 			bx::shuffle(&m_rng, shuffle, BX_COUNTOF(shuffle) );
@@ -407,46 +436,55 @@ public:
 			bgfx::setViewClear(hdrSkybox, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
 			bgfx::setViewRect(hdrSkybox, 0, 0, bgfx::BackbufferRatio::Equal);
 			bgfx::setViewFrameBuffer(hdrSkybox, m_fbh);
+			bgfx::setViewShadingRate(hdrSkybox, shadingRate);
 
 			bgfx::setViewName(hdrMesh, "Mesh");
 			bgfx::setViewClear(hdrMesh, BGFX_CLEAR_DISCARD_DEPTH | BGFX_CLEAR_DISCARD_STENCIL);
 			bgfx::setViewRect(hdrMesh, 0, 0, bgfx::BackbufferRatio::Equal);
 			bgfx::setViewFrameBuffer(hdrMesh, m_fbh);
+			bgfx::setViewShadingRate(hdrMesh, shadingRate);
 
 			bgfx::setViewName(hdrLuminance, "Luminance");
 			bgfx::setViewRect(hdrLuminance, 0, 0, 128, 128);
 			bgfx::setViewFrameBuffer(hdrLuminance, m_lum[0]);
+			bgfx::setViewShadingRate(hdrLuminance, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrLumScale0, "Downscale luminance 0");
 			bgfx::setViewRect(hdrLumScale0, 0, 0, 64, 64);
 			bgfx::setViewFrameBuffer(hdrLumScale0, m_lum[1]);
+			bgfx::setViewShadingRate(hdrLumScale0, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrLumScale1, "Downscale luminance 1");
 			bgfx::setViewRect(hdrLumScale1, 0, 0, 16, 16);
 			bgfx::setViewFrameBuffer(hdrLumScale1, m_lum[2]);
+			bgfx::setViewShadingRate(hdrLumScale1, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrLumScale2, "Downscale luminance 2");
 			bgfx::setViewRect(hdrLumScale2, 0, 0, 4, 4);
 			bgfx::setViewFrameBuffer(hdrLumScale2, m_lum[3]);
+			bgfx::setViewShadingRate(hdrLumScale2, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrLumScale3, "Downscale luminance 3");
 			bgfx::setViewRect(hdrLumScale3, 0, 0, 1, 1);
 			bgfx::setViewFrameBuffer(hdrLumScale3, m_lum[4]);
+			bgfx::setViewShadingRate(hdrLumScale3, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrBrightness, "Brightness");
 			bgfx::setViewRect(hdrBrightness, 0, 0, bgfx::BackbufferRatio::Half);
 			bgfx::setViewFrameBuffer(hdrBrightness, m_bright);
+			bgfx::setViewShadingRate(hdrBrightness, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrVBlur, "Blur vertical");
 			bgfx::setViewRect(hdrVBlur, 0, 0, bgfx::BackbufferRatio::Eighth);
 			bgfx::setViewFrameBuffer(hdrVBlur, m_blur);
+			bgfx::setViewShadingRate(hdrVBlur, bgfx::ShadingRate::Rate1x1);
 
 			bgfx::setViewName(hdrHBlurTonemap, "Blur horizontal + tonemap");
 			bgfx::setViewRect(hdrHBlurTonemap, 0, 0, bgfx::BackbufferRatio::Equal);
 			bgfx::FrameBufferHandle invalid = BGFX_INVALID_HANDLE;
 			bgfx::setViewFrameBuffer(hdrHBlurTonemap, invalid);
+			bgfx::setViewShadingRate(hdrHBlurTonemap, bgfx::ShadingRate::Rate1x1);
 
-			const bgfx::Caps* caps = bgfx::getCaps();
 			float proj[16];
 			bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
 
@@ -489,53 +527,53 @@ public:
 			// Set view and projection matrix for view hdrMesh.
 			bgfx::setViewTransform(hdrMesh, view, proj);
 
-			float tonemap[4] = { m_middleGray, bx::square(m_white), m_threshold, m_time };
+			const float tonemap[4] = { m_middleGray, bx::square(m_white), m_threshold, m_time };
+			bgfx::setFrameUniform(u_tonemap, tonemap);
 
 			// Render skybox into view hdrSkybox.
 			bgfx::setTexture(0, s_texCube, m_uffizi);
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
 			bgfx::setUniform(u_mtx, mtx);
-			screenSpaceQuad( (float)m_width, (float)m_height, true);
+			screenSpaceQuad(true);
 			bgfx::submit(hdrSkybox, m_skyProgram);
 
 			// Render m_mesh into view hdrMesh.
 			bgfx::setTexture(0, s_texCube, m_uffizi);
-			bgfx::setUniform(u_tonemap, tonemap);
 			meshSubmit(m_mesh, hdrMesh, m_meshProgram, NULL);
 
 			// Calculate luminance.
 			setOffsets2x2Lum(u_offset, 128, 128);
 			bgfx::setTexture(0, s_texColor, m_fbtextures[0]);
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad(128.0f, 128.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrLuminance, m_lumProgram);
 
 			// Downscale luminance 0.
 			setOffsets4x4Lum(u_offset, 128, 128);
 			bgfx::setTexture(0, s_texColor, bgfx::getTexture(m_lum[0]) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad(64.0f, 64.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrLumScale0, m_lumAvgProgram);
 
 			// Downscale luminance 1.
 			setOffsets4x4Lum(u_offset, 64, 64);
 			bgfx::setTexture(0, s_texColor, bgfx::getTexture(m_lum[1]) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad(16.0f, 16.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrLumScale1, m_lumAvgProgram);
 
 			// Downscale luminance 2.
 			setOffsets4x4Lum(u_offset, 16, 16);
 			bgfx::setTexture(0, s_texColor, bgfx::getTexture(m_lum[2]) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad(4.0f, 4.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrLumScale2, m_lumAvgProgram);
 
 			// Downscale luminance 3.
 			setOffsets4x4Lum(u_offset, 4, 4);
 			bgfx::setTexture(0, s_texColor, bgfx::getTexture(m_lum[3]) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad(1.0f, 1.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrLumScale3, m_lumAvgProgram);
 
 			// m_bright pass m_threshold is tonemap[3].
@@ -543,15 +581,13 @@ public:
 			bgfx::setTexture(0, s_texColor, m_fbtextures[0]);
 			bgfx::setTexture(1, s_texLum, bgfx::getTexture(m_lum[4]) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			bgfx::setUniform(u_tonemap, tonemap);
-			screenSpaceQuad( (float)m_width/2.0f, (float)m_height/2.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrBrightness, m_brightProgram);
 
 			// m_blur m_bright pass vertically.
 			bgfx::setTexture(0, s_texColor, bgfx::getTexture(m_bright) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			bgfx::setUniform(u_tonemap, tonemap);
-			screenSpaceQuad( (float)m_width/8.0f, (float)m_height/8.0f, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrVBlur, m_blurProgram);
 
 			// m_blur m_bright pass horizontally, do tonemaping and combine.
@@ -559,7 +595,7 @@ public:
 			bgfx::setTexture(1, s_texLum, bgfx::getTexture(m_lum[4]) );
 			bgfx::setTexture(2, s_texBlur, bgfx::getTexture(m_blur) );
 			bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A);
-			screenSpaceQuad( (float)m_width, (float)m_height, m_caps->originBottomLeft);
+			screenSpaceQuad(m_caps->originBottomLeft);
 			bgfx::submit(hdrHBlurTonemap, m_tonemapProgram);
 
 			if (bgfx::isValid(m_rb) )
@@ -626,7 +662,9 @@ public:
 	int32_t m_scrollArea;
 
 	const bgfx::Caps* m_caps;
+
 	float m_time;
+	FrameTime m_frameTime;
 };
 
 } // namespace

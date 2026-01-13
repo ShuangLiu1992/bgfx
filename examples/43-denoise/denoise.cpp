@@ -160,7 +160,7 @@ struct RenderTarget
 	bgfx::FrameBufferHandle m_buffer;
 };
 
-void screenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
+void screenSpaceQuad(bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
 {
 	if (3 == bgfx::getAvailTransientVertexBuffer(3, PosTexCoord0Vertex::ms_layout) )
 	{
@@ -173,15 +173,13 @@ void screenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf
 		const float miny = 0.0f;
 		const float maxy =  _height * 2.0f;
 
-		const float texelHalfW = _texelHalf / _textureWidth;
-		const float texelHalfH = _texelHalf / _textureHeight;
-		const float minu = -1.0f + texelHalfW;
-		const float maxu =  1.0f + texelHalfW;
+		const float minu = -1.0f;
+		const float maxu =  1.0f;
 
 		const float zz = 0.0f;
 
-		float minv = texelHalfH;
-		float maxv = 2.0f + texelHalfH;
+		float minv = 0.0f;
+		float maxv = 2.0f;
 
 		if (_originBottomLeft)
 		{
@@ -235,7 +233,6 @@ public:
 	ExampleDenoise(const char* _name, const char* _description)
 		: entry::AppI(_name, _description)
 		, m_currFrame(UINT32_MAX)
-		, m_texelHalf(0.0f)
 	{
 	}
 
@@ -253,6 +250,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -328,11 +326,9 @@ public:
 		// Track whether previous results are valid
 		m_havePrevious = false;
 
-		// Get renderer capabilities info.
-		const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-		m_texelHalf = bgfx::RendererType::Direct3D9 == renderer ? 0.5f : 0.0f;
-
 		imguiCreate();
+
+		m_frameTime.reset();
 	}
 
 	int32_t shutdown() override
@@ -381,6 +377,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			// skip processing when minimized, otherwise crashing
 			if (0 == m_width
 			||  0 == m_height)
@@ -388,13 +387,6 @@ public:
 				return true;
 			}
 
-			// Update frame timer
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime / freq);
 			const bgfx::Caps* caps = bgfx::getCaps();
 
 			if (m_size[0] != (int32_t)m_width
@@ -479,7 +471,7 @@ public:
 
 				m_uniforms.submit();
 
-				screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 
 				bgfx::submit(view, m_combineProgram);
 
@@ -511,7 +503,7 @@ public:
 
 				m_uniforms.submit();
 
-				screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 
 				bgfx::submit(view, m_denoiseTemporalProgram);
 
@@ -533,7 +525,7 @@ public:
 					m_temporaryColor.m_buffer,
 					m_currentColor.m_buffer,
 				};
-				BX_STATIC_ASSERT(BX_COUNTOF(destBuffer) == DENOISE_MAX_PASSES);
+				static_assert(BX_COUNTOF(destBuffer) == DENOISE_MAX_PASSES);
 
 				const uint32_t denoisePasses = bx::min(DENOISE_MAX_PASSES, m_denoisePasses);
 
@@ -557,7 +549,7 @@ public:
 					m_uniforms.m_denoiseStep = denoiseStepScale;
 					m_uniforms.submit();
 
-					screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 
 					const bgfx::ProgramHandle spatialProgram = (0 == m_spatialSampleType)
 						? m_denoiseSpatialProgram3x3
@@ -592,7 +584,7 @@ public:
 				bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_ALWAYS);
 				bgfx::setTexture(0, s_color, lastTex);
 
-				screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 				bgfx::submit(view, m_copyProgram);
 
 				++view;
@@ -619,7 +611,7 @@ public:
 				bgfx::setTexture(1, s_albedo, m_gbufferTex[GBUFFER_RT_COLOR]);
 				m_uniforms.submit();
 
-				screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 				bgfx::submit(view, m_denoiseApplyLighting);
 				++view;
 
@@ -650,7 +642,7 @@ public:
 					bgfx::setTexture(3, s_depth, m_gbufferTex[GBUFFER_RT_DEPTH]);
 					m_uniforms.submit();
 
-					screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 					bgfx::submit(view, m_txaaProgram);
 
 					++view;
@@ -670,7 +662,7 @@ public:
 						);
 					bgfx::setTexture(0, s_color, m_txaaColor.m_texture);
 
-					screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 					bgfx::submit(view, m_copyProgram);
 
 					++view;
@@ -690,7 +682,7 @@ public:
 						);
 					bgfx::setTexture(0, s_color, m_txaaColor.m_texture);
 
-					screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 					bgfx::submit(view, m_copyProgram);
 
 					++view;
@@ -717,7 +709,7 @@ public:
 						);
 					bgfx::setTexture(0, s_color, lastTex);
 
-					screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 					bgfx::submit(view, m_copyProgram);
 
 					++view;
@@ -733,7 +725,7 @@ public:
 				bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_ALWAYS);
 				bgfx::setTexture(0, s_color, m_gbufferTex[GBUFFER_RT_NORMAL]);
 
-				screenSpaceQuad(float(m_width), float(m_height), m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 				bgfx::submit(view, m_copyProgram);
 
 				++view;
@@ -1094,7 +1086,6 @@ public:
 	bgfx::TextureHandle m_normalTexture;
 
 	uint32_t m_currFrame;
-	float    m_texelHalf            = 0.0f;
 	float    m_fovY                 = 60.0f;
 	bool     m_recreateFrameBuffers = false;
 	bool     m_havePrevious         = false;
@@ -1120,6 +1111,8 @@ public:
 	bool    m_enableTxaa          = false;
 	bool    m_applyMitchellFilter = true;
 	bool    m_useTxaaSlow         = false;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

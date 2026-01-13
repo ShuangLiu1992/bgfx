@@ -84,7 +84,7 @@ namespace
 	bgfx::VertexLayout PosTexCoord0Vertex::ms_layout;
 
 	// Utility function to draw a screen space quad for deferred rendering
-	void screenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
+	void screenSpaceQuad(bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
 	{
 		if (3 == bgfx::getAvailTransientVertexBuffer(3, PosTexCoord0Vertex::ms_layout))
 		{
@@ -97,15 +97,13 @@ namespace
 			const float miny = 0.0f;
 			const float maxy = _height * 2.0f;
 
-			const float texelHalfW = _texelHalf / _textureWidth;
-			const float texelHalfH = _texelHalf / _textureHeight;
-			const float minu = -1.0f + texelHalfW;
-			const float maxu = 1.0f + texelHalfH;
+			const float minu = -1.0f;
+			const float maxu =  1.0f;
 
 			const float zz = 0.0f;
 
-			float minv = texelHalfH;
-			float maxv = 2.0f + texelHalfH;
+			float minv = 0.0f;
+			float maxv = 2.0f;
 
 			if (_originBottomLeft)
 			{
@@ -252,7 +250,6 @@ namespace
 			, m_currFrame(UINT32_MAX)
 			, m_enableSSAO(true)
 			, m_enableTexturing(true)
-			, m_texelHalf(0.0f)
 			, m_framebufferGutter(true)
 		{
 		}
@@ -271,6 +268,7 @@ namespace
 			init.vendorId = args.m_pciId;
 			init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 			init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 			init.resolution.width  = m_width;
 			init.resolution.height = m_height;
 			init.resolution.reset  = m_reset;
@@ -375,11 +373,9 @@ namespace
 			cameraSetVerticalAngle(-0.3f);
 			m_fovY = 60.0f;
 
-			// Get renderer capabilities info.
-			const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-			m_texelHalf = bgfx::RendererType::Direct3D9 == renderer ? 0.5f : 0.0f;
-
 			imguiCreate();
+
+			m_frameTime.reset();
 		}
 
 		int32_t shutdown() override
@@ -453,13 +449,9 @@ namespace
 		{
 			if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState))
 			{
-				// Update frame timer
-				int64_t now = bx::getHPCounter();
-				static int64_t last = now;
-				const int64_t frameTime = now - last;
-				last = now;
-				const double freq = double(bx::getHPFrequency());
-				const float deltaTime = float(frameTime / freq);
+				m_frameTime.frame();
+				const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 				const bgfx::Caps* caps = bgfx::getCaps();
 
 				if (m_size[0] != (int32_t)m_width  + 2*m_border
@@ -494,7 +486,7 @@ namespace
 				bgfx::setViewTransform(RENDER_PASS_COMBINE, NULL, orthoProj);
 				bgfx::setViewRect(RENDER_PASS_COMBINE, 0, 0, uint16_t(m_width), uint16_t(m_height));
 				// Bind vertex buffer and draw quad
-				screenSpaceQuad((float)m_width, (float)m_height, m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 				//bgfx::submit(RENDER_PASS_COMBINE, m_combineProgram);
 				bgfx::touch(RENDER_PASS_COMBINE);
 
@@ -753,7 +745,7 @@ namespace
 						(float)(m_size[0]-2*m_border) / (float)m_size[0], (float)(m_size[1] - 2 * m_border) / (float)m_size[1],
 						(float)m_border / (float)m_size[0], (float)m_border / (float)m_size[1] };
 					bgfx::setUniform(u_combineParams, combineParams, 2);
-					screenSpaceQuad((float)m_width, (float)m_height, m_texelHalf, caps->originBottomLeft);
+					screenSpaceQuad(caps->originBottomLeft);
 					bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_ALWAYS);
 					bgfx::submit(view, m_combineProgram);
 					++view;
@@ -1182,7 +1174,6 @@ namespace
 		bool m_enableSSAO;
 		bool m_enableTexturing;
 
-		float m_texelHalf;
 		float m_fovY;
 
 		bool m_framebufferGutter;
@@ -1197,6 +1188,8 @@ namespace
 		int32_t m_fullResOutScissorRect[4];
 		int32_t m_halfResOutScissorRect[4];
 		int32_t m_border;
+
+		FrameTime m_frameTime;
 	};
 
 } // namespace
@@ -1207,5 +1200,3 @@ ENTRY_IMPLEMENT_MAIN(
 	, "Adaptive Screen Space Ambient Occlusion."
 	, "https://bkaradzic.github.io/bgfx/examples.html#assao"
 	);
-
-

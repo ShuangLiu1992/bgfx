@@ -63,7 +63,7 @@ struct PosTexCoord0Vertex
 
 bgfx::VertexLayout PosTexCoord0Vertex::ms_layout;
 
-void screenSpaceTriangle(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f, float _offsetX = 0.0f, float _offsetY = 0.0f)
+void screenSpaceQuad(bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f, float _offsetX = 0.0f, float _offsetY = 0.0f)
 {
 	if (3 == bgfx::getAvailTransientVertexBuffer(3, PosTexCoord0Vertex::ms_layout) )
 	{
@@ -76,15 +76,13 @@ void screenSpaceTriangle(float _textureWidth, float _textureHeight, float _texel
 		const float miny = 0.0f - _offsetY;
 		const float maxy = _height * 2.0f - _offsetY;
 
-		const float texelHalfW = _texelHalf / _textureWidth;
-		const float texelHalfH = _texelHalf / _textureHeight;
-		const float minu = -1.0f + texelHalfW;
-		const float maxu = 1.0f + texelHalfW;
+		const float minu = -1.0f;
+		const float maxu =  1.0f;
 
 		const float zz = 0.0f;
 
-		float minv = texelHalfH;
-		float maxv = 2.0f + texelHalfH;
+		float minv = 0.0f;
+		float maxv = 2.0f;
 
 		if (_originBottomLeft)
 		{
@@ -193,7 +191,6 @@ struct AppState
 
 	uint32_t m_currFrame{UINT32_MAX};
 	float m_lightRotation = 0.0f;
-	float m_texelHalf = 0.0f;
 	float m_fovY = 60.0f;
 	float m_animationTime = 0.0f;
 
@@ -262,7 +259,7 @@ struct MagnifierWidget
 
 		bgfx::setState(0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_ALWAYS | BGFX_STATE_BLEND_ALPHA);
 		bgfx::setTexture(0, state.s_color, m_widgetTexture);
-		screenSpaceTriangle(float(m_widgetWidth), float(m_widgetHeight), state.m_texelHalf, false, scaleX, scaleY, offsetX, offsetY);
+		screenSpaceQuad(false, scaleX, scaleY, offsetX, offsetY);
 		bgfx::submit(view, state.m_copyLinearToGammaProgram);
 	}
 
@@ -291,7 +288,7 @@ struct MagnifierWidget
 		bgfx::setViewFrameBuffer(view, m_content.m_buffer);
 		bgfx::setState(0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
 		bgfx::setTexture(0, state.s_color, srcTexture, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-		screenSpaceTriangle(float(state.m_width), float(state.m_height), state.m_texelHalf, false, scaleX, scaleY, offsetX, offsetY);
+		screenSpaceQuad(false, scaleX, scaleY, offsetX, offsetY);
 		bgfx::submit(view, state.m_copyLinearToGammaProgram);
 		++view;
 	}
@@ -421,10 +418,6 @@ public:
 		cameraGetViewMtx(m_state.m_view);
 		bx::mtxProj(m_state.m_proj, m_state.m_fovY, float(m_state.m_size[0]) / float(m_state.m_size[1]), 0.01f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 
-		// Get renderer capabilities info.
-		const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-		m_state.m_texelHalf = bgfx::RendererType::Direct3D9 == renderer ? 0.5f : 0.0f;
-
 		const uint32_t magnifierSize = 32;
 		m_magnifierWidget.init(magnifierSize, magnifierSize);
 		m_magnifierWidget.setPosition(m_state.m_width * 0.5f, m_state.m_height * 0.5f);
@@ -432,6 +425,8 @@ public:
 		imguiCreate();
 
 		m_state.m_fsr.init(_width, _height);
+
+		m_frameTime.reset();
 	}
 
 	int32_t shutdown() override
@@ -473,6 +468,9 @@ public:
 	{
 		if (!entry::processEvents(m_state.m_width, m_state.m_height, m_state.m_debug, m_state.m_reset, &m_state.m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			// skip processing when minimized, otherwise crashing
 			if (0 == m_state.m_width
 			||  0 == m_state.m_height)
@@ -489,13 +487,6 @@ public:
 					);
 			}
 
-			// Update frame timer
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime / freq);
 			const bgfx::Caps* caps = bgfx::getCaps();
 
 			if (m_state.m_size[0] != (int32_t)m_state.m_width || m_state.m_size[1] != (int32_t)m_state.m_height)
@@ -600,7 +591,7 @@ public:
 				bgfx::setViewFrameBuffer(view, BGFX_INVALID_HANDLE);
 				bgfx::setState(0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
 				bgfx::setTexture(0, m_state.s_color, srcTexture, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-				screenSpaceTriangle(float(m_state.m_width), float(m_state.m_height), m_state.m_texelHalf, caps->originBottomLeft);
+				screenSpaceQuad(caps->originBottomLeft);
 				bgfx::submit(view, m_state.m_copyLinearToGammaProgram);
 			}
 
@@ -651,19 +642,18 @@ public:
 
 					ImGui::Separator();
 
-					if (m_state.m_fsr.supports16BitPrecision() )
-					{
-						ImGui::Checkbox("Use 16 Bit", &m_state.m_fsr.m_config.m_fsr16Bit);
+					ImGui::BeginDisabled(!m_state.m_fsr.supports16BitPrecision() );
+					ImGui::Checkbox("Use 16 Bit", &m_state.m_fsr.m_config.m_fsr16Bit);
 
-						if (ImGui::IsItemHovered() )
-						{
-							ImGui::BeginTooltip();
-							ImGui::Text("For better performance and less memory consumption use 16 Bit precision.");
-							ImGui::Text("If disabled use 32 Bit per channel precision for FSR which works better on older hardware.");
-							ImGui::Text("FSR in 16 Bit precision is also prone to be broken in Direct3D11, Direct3D12 works though.");
-							ImGui::EndTooltip();
-						}
+					if (ImGui::IsItemHovered() )
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("For better performance and less memory consumption use 16 Bit precision.");
+						ImGui::Text("If disabled use 32 Bit per channel precision for FSR which works better on older hardware.");
+						ImGui::Text("FSR in 16 Bit precision is also prone to be broken in Direct3D11, Direct3D12 works though.");
+						ImGui::EndTooltip();
 					}
+					ImGui::EndDisabled();
 
 					ImGui::Checkbox("Apply FSR", &m_state.m_fsr.m_config.m_applyFsr);
 
@@ -845,6 +835,8 @@ public:
 
 	AppState m_state;
 	MagnifierWidget m_magnifierWidget;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

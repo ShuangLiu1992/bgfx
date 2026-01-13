@@ -22,10 +22,10 @@ mat3 cotangentFrame(vec3 N, vec3 p, vec2 uv)
 	vec3 dp1perp = cross(N, dp1);
 	vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
 	vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
-	
+
 	// construct a scale-invariant frame
 	float invMax = inversesqrt(max(dot(T,T), dot(B,B)));
-	return mat3(T*invMax, B*invMax, N);
+	return mtxFromCols(T*invMax, B*invMax, N);
 }
 
 void main()
@@ -34,21 +34,21 @@ void main()
 
 	// get vertex normal
 	vec3 normal = normalize(v_normal);
-	
+
 	// get normal map normal, unpack, and calculate z
 	vec3 normalMap;
 	normalMap.xy = texture2D(s_normal, v_texcoord0).xy;
 	normalMap.xy = normalMap.xy * 2.0 - 1.0;
 	normalMap.z = sqrt(1.0 - dot(normalMap.xy, normalMap.xy));
-	
+
 	// swap x and y, because the brick texture looks flipped, don't copy this...
 	normalMap.xy = normalMap.yx;
 
 	// perturb geometry normal by normal map
 	vec3 pos = v_texcoord1.xyz; // contains world space pos
 	mat3 TBN = cotangentFrame(normal, pos, v_texcoord0);
-	vec3 bumpedNormal = normalize(instMul(TBN, normalMap));
-	
+	vec3 bumpedNormal = normalize(mul(TBN, normalMap));
+
 	// need some proxy for roughness value w/o roughness texture
 	// assume horizontal (blue) normal map is smooth, and then
 	// modulate with albedo for some higher frequency detail

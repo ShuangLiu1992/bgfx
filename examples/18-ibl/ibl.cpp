@@ -291,8 +291,8 @@ struct Camera
 
 	struct Interp3f
 	{
-		bx::Vec3 curr = bx::init::None;
-		bx::Vec3 dest = bx::init::None;
+		bx::Vec3 curr = bx::InitNone;
+		bx::Vec3 dest = bx::InitNone;
 	};
 
 	Interp3f m_target;
@@ -420,6 +420,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -461,6 +462,8 @@ public:
 
 		m_meshBunny = meshLoad("meshes/bunny.bin");
 		m_meshOrb = meshLoad("meshes/orb.bin");
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -499,6 +502,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -635,7 +641,7 @@ public:
 				ImGui::Separator();
 				ImGui::Text("Workflow:");
 				ImGui::Indent();
-				ImGui::RadioButton("Metalness", &m_settings.m_metalOrSpec, 0);
+				ImGui::RadioButton("Metalness##Button", &m_settings.m_metalOrSpec, 0);
 				ImGui::RadioButton("Specular", &m_settings.m_metalOrSpec, 1);
 				ImGui::Unindent();
 
@@ -644,7 +650,7 @@ public:
 				ImGui::Indent();
 				ImGui::PushItemWidth(130.0f);
 				ImGui::SliderFloat("Glossiness", &m_settings.m_glossiness, 0.0f, 1.0f);
-				ImGui::SliderFloat(0 == m_settings.m_metalOrSpec ? "Metalness" : "Diffuse - Specular", &m_settings.m_reflectivity, 0.0f, 1.0f);
+				ImGui::SliderFloat(0 == m_settings.m_metalOrSpec ? "Metalness##Slider" : "Diffuse - Specular", &m_settings.m_reflectivity, 0.0f, 1.0f);
 				ImGui::PopItemWidth();
 				ImGui::Unindent();
 			}
@@ -656,6 +662,26 @@ public:
 			{
 				ImGui::ColorWheel("Specular:", &m_settings.m_rgbSpec[0], 0.7f);
 			}
+
+			const bgfx::Caps* caps = bgfx::getCaps();
+
+			static const char* s_shadingRateName[] =
+			{
+				"1x1",
+				"1x2",
+				"2x1",
+				"2x2",
+				"2x4",
+				"4x2",
+				"4x4",
+			};
+			static_assert(bgfx::ShadingRate::Count == BX_COUNTOF(s_shadingRateName) );
+
+			static bgfx::ShadingRate::Enum shadingRate = bgfx::ShadingRate::Rate1x1;
+
+			ImGui::BeginDisabled(0 == (caps->supported & BGFX_CAPS_VARIABLE_RATE_SHADING) );
+			ImGui::Combo("Shading Rate", (int*)&shadingRate, s_shadingRateName, BX_COUNTOF(s_shadingRateName) );
+			ImGui::EndDisabled();
 
 			ImGui::End();
 
@@ -675,16 +701,10 @@ public:
 			bx::memCopy(m_uniforms.m_lightDir, m_settings.m_lightDir, 3*sizeof(float) );
 			bx::memCopy(m_uniforms.m_lightCol, m_settings.m_lightCol, 3*sizeof(float) );
 
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTimeSec = float(double(frameTime)/freq);
-
 			// Camera.
 			const bool mouseOverGui = ImGui::MouseOverArea();
 			m_mouse.update(float(m_mouseState.m_mx), float(m_mouseState.m_my), m_mouseState.m_mz, m_width, m_height);
+
 			if (!mouseOverGui)
 			{
 				if (m_mouseState.m_buttons[entry::MouseButton::Left])
@@ -704,14 +724,13 @@ public:
 					m_camera.dolly(float(m_mouse.m_scroll)*0.05f);
 				}
 			}
-			m_camera.update(deltaTimeSec);
+
+			m_camera.update(deltaTime);
 			bx::memCopy(m_uniforms.m_cameraPos, &m_camera.m_pos.curr.x, 3*sizeof(float) );
 
 			// View Transform 0.
 			float view[16];
 			bx::mtxIdentity(view);
-
-			const bgfx::Caps* caps = bgfx::getCaps();
 
 			float proj[16];
 			bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0, caps->homogeneousDepth);
@@ -721,13 +740,14 @@ public:
 			m_camera.mtxLookAt(view);
 			bx::mtxProj(proj, 45.0f, float(m_width)/float(m_height), 0.1f, 100.0f, caps->homogeneousDepth);
 			bgfx::setViewTransform(1, view, proj);
+			bgfx::setViewShadingRate(1, shadingRate);
 
 			// View rect.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height) );
 			bgfx::setViewRect(1, 0, 0, uint16_t(m_width), uint16_t(m_height) );
 
 			// Env rotation.
-			const float amount = bx::min(deltaTimeSec/0.12f, 1.0f);
+			const float amount = bx::min(deltaTime/0.12f, 1.0f);
 			m_settings.m_envRotCurr = bx::lerp(m_settings.m_envRotCurr, m_settings.m_envRotDest, amount);
 
 			// Env mtx.
@@ -830,6 +850,8 @@ public:
 	Mouse m_mouse;
 
 	Settings m_settings;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

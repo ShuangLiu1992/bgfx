@@ -33,7 +33,7 @@ namespace opt {
 // Documented in optimizer.hpp
 class ScalarReplacementPass : public MemPass {
  private:
-  static constexpr uint32_t kDefaultLimit = 100;
+  static constexpr uint32_t kDefaultLimit = 0;
 
  public:
   ScalarReplacementPass(uint32_t limit = kDefaultLimit)
@@ -199,7 +199,9 @@ class ScalarReplacementPass : public MemPass {
   // If there is an initial value for |source| for element |index|, it is
   // appended as an operand on |newVar|. If the initial value is OpUndef, no
   // initial value is added to |newVar|.
-  void GetOrCreateInitialValue(Instruction* source, uint32_t index,
+  //
+  // Returns true if the value was successfully created.
+  bool GetOrCreateInitialValue(Instruction* source, uint32_t index,
                                Instruction* newVar);
 
   // Replaces the load to the entire composite.
@@ -262,9 +264,26 @@ class ScalarReplacementPass : public MemPass {
   // that we will be willing to split.
   bool IsLargerThanSizeLimit(uint64_t length) const;
 
+  // Copies all relevant decorations from `from` to `to`. This includes
+  // decorations applied to the variable, and to the members of the type.
+  // It is assumed that `to` is a variable that is intended to replace the
+  // `member_index`th member of `from`.
+  void CopyDecorationsToVariable(Instruction* from, Instruction* to,
+                                 uint32_t member_index);
+
+  // Copies pointer related decoration from `from` to `to` if they exist.
+  void CopyPointerDecorationsToVariable(Instruction* from, Instruction* to);
+
+  // Copies decorations that are needed from the `member_index` of `from` to
+  // `to, if there was one.
+  void CopyNecessaryMemberDecorationsToVariable(Instruction* from,
+                                                Instruction* to,
+                                                uint32_t member_index);
+
   // Limit on the number of members in an object that will be replaced.
   // 0 means there is no limit.
   uint32_t max_num_elements_;
+
   // This has to be big enough to fit "scalar-replacement=" followed by a
   // uint32_t number written in decimal (so 10 digits), and then a
   // terminating nul.

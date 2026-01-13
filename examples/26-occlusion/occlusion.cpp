@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -84,6 +84,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -142,9 +143,9 @@ public:
 		cameraSetPosition({ 15.5f, 0.0f, -15.5f });
 		cameraSetHorizontalAngle(bx::toRad(-45.0f) );
 
-		m_timeOffset = bx::getHPCounter();
-
 		imguiCreate();
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -176,6 +177,10 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float time      = bx::toSeconds<float>(m_frameTime.getDurationTime() );
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -196,14 +201,6 @@ public:
 
 			if (m_occlusionQuerySupported)
 			{
-				int64_t now = bx::getHPCounter();
-				static int64_t last = now;
-				const int64_t frameTime = now - last;
-				last = now;
-				const double freq = double(bx::getHPFrequency() );
-				const float time = (float)( (now-m_timeOffset)/double(bx::getHPFrequency() ) );
-				const float deltaTime = float(frameTime/freq);
-
 				// Update camera.
 				cameraUpdate(deltaTime, m_state.m_mouse, ImGui::MouseOverArea() );
 
@@ -274,6 +271,8 @@ public:
 					}
 				}
 
+				bgfx::dbgTextClear();
+
 				for (uint16_t xx = 0; xx < CUBES_DIM; ++xx)
 				{
 					bgfx::dbgTextImage(5 + xx*2, 20, 1, CUBES_DIM, img + xx*2, CUBES_DIM*2);
@@ -304,12 +303,14 @@ public:
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle m_program;
-	int64_t m_timeOffset;
+
 	bool m_occlusionQuerySupported;
 
 	bgfx::OcclusionQueryHandle m_occlusionQueries[CUBES_DIM*CUBES_DIM];
 
 	entry::WindowState m_state;
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

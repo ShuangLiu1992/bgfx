@@ -80,6 +80,7 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -106,8 +107,6 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 		// Imgui.
 		imguiCreate();
 
-		m_timeOffset = bx::getHPCounter();
-
 		m_vbh.idx = bgfx::kInvalidHandle;
 		m_ibh.idx = bgfx::kInvalidHandle;
 		m_dvbh.idx = bgfx::kInvalidHandle;
@@ -127,9 +126,9 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 
 		m_terrain.m_mode      = 0;
 		m_terrain.m_dirty     = true;
-		m_terrain.m_vertices  = (PosTexCoord0Vertex*)BX_ALLOC(entry::getAllocator(), num * sizeof(PosTexCoord0Vertex) );
-		m_terrain.m_indices   = (uint16_t*)BX_ALLOC(entry::getAllocator(), num * sizeof(uint16_t) * 6);
-		m_terrain.m_heightMap = (uint8_t*)BX_ALLOC(entry::getAllocator(), num);
+		m_terrain.m_vertices  = (PosTexCoord0Vertex*)bx::alloc(entry::getAllocator(), num * sizeof(PosTexCoord0Vertex) );
+		m_terrain.m_indices   = (uint16_t*)bx::alloc(entry::getAllocator(), num * sizeof(uint16_t) * 6);
+		m_terrain.m_heightMap = (uint8_t*)bx::alloc(entry::getAllocator(), num);
 
 		bx::mtxSRT(m_terrain.m_transform, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		bx::memSet(m_terrain.m_heightMap, 0, sizeof(uint8_t) * s_terrainSize * s_terrainSize);
@@ -138,6 +137,8 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 
 		cameraSetPosition({ s_terrainSize/2.0f, 100.0f, 0.0f });
 		cameraSetVerticalAngle(-bx::kPiQuarter);
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -181,9 +182,9 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 		bgfx::frame();
 
 		bx::AllocatorI* allocator = entry::getAllocator();
-		BX_FREE(allocator, m_terrain.m_vertices);
-		BX_FREE(allocator, m_terrain.m_indices);
-		BX_FREE(allocator, m_terrain.m_heightMap);
+		bx::free(allocator, m_terrain.m_vertices);
+		bx::free(allocator, m_terrain.m_indices);
+		bx::free(allocator, m_terrain.m_heightMap);
 
 		// Shutdown bgfx.
 		bgfx::shutdown();
@@ -385,12 +386,8 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTime = float(frameTime/freq);
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
 
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
@@ -518,7 +515,7 @@ ExampleTerrain(const char* _name, const char* _description, const char* _url)
 
 	entry::MouseState m_mouseState;
 
-	int64_t m_timeOffset;
+	FrameTime m_frameTime;
 };
 
 } // namespace

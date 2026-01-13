@@ -29,8 +29,8 @@ struct Camera
 
 	void reset()
 	{
-		m_target.curr = bx::init::Zero;
-		m_target.dest = bx::init::Zero;
+		m_target.curr = bx::InitZero;
+		m_target.dest = bx::InitZero;
 
 		m_pos.curr = { 0.0f, 0.0f, -2.0f };
 		m_pos.dest = { 0.0f, 0.0f, -2.0f };
@@ -135,8 +135,8 @@ struct Camera
 
 	struct Interp3f
 	{
-		bx::Vec3 curr = bx::init::None;
-		bx::Vec3 dest = bx::init::None;
+		bx::Vec3 curr = bx::InitNone;
+		bx::Vec3 dest = bx::InitNone;
 	};
 
 	Interp3f m_target;
@@ -293,6 +293,7 @@ public:
 		init.vendorId = args.m_pciId;
 		init.platformData.nwh  = entry::getNativeWindowHandle(entry::kDefaultWindowHandle);
 		init.platformData.ndt  = entry::getNativeDisplayHandle();
+		init.platformData.type = entry::getNativeWindowHandleType();
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
@@ -327,6 +328,8 @@ public:
 
 		m_meshSelection = 1;
 		m_drawMode = DrawMode::WireframeShaded;
+
+		m_frameTime.reset();
 	}
 
 	virtual int shutdown() override
@@ -353,6 +356,9 @@ public:
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
+			m_frameTime.frame();
+			const float deltaTime = bx::toSeconds<float>(m_frameTime.getDeltaTime() );
+
 			if (m_oldWidth  != m_width
 			||  m_oldHeight != m_height
 			||  m_oldReset  != m_reset)
@@ -424,13 +430,6 @@ public:
 			// if no other draw calls are submitted to view 0.
 			bgfx::touch(0);
 
-			int64_t now = bx::getHPCounter();
-			static int64_t last = now;
-			const int64_t frameTime = now - last;
-			last = now;
-			const double freq = double(bx::getHPFrequency() );
-			const float deltaTimeSec = float(double(frameTime)/freq);
-
 			// Setup view.
 			bgfx::setViewRect(0, 0, 0, bgfx::BackbufferRatio::Equal);
 			bgfx::setViewClear(0, BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
@@ -455,8 +454,8 @@ public:
 
 			float view[16];
 			float proj[16];
-			m_camera.update(deltaTimeSec);
-			bx::memCopy(m_uniforms.m_camPos, &m_camera.m_pos.curr.x, 3*sizeof(float));
+			m_camera.update(deltaTime);
+			bx::memCopy(m_uniforms.m_camPos, &m_camera.m_pos.curr.x, 3*sizeof(float) );
 			m_camera.mtxLookAt(view);
 			bx::mtxProj(proj, 60.0f, float(m_width)/float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 			bgfx::setViewTransform(0, view, proj);
@@ -519,6 +518,8 @@ public:
 	MeshMtx m_meshes[3];
 	int32_t m_meshSelection;
 	int32_t m_drawMode; // Holds data for 'DrawMode'.
+
+	FrameTime m_frameTime;
 };
 
 } // namespace

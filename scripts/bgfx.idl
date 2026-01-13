@@ -1,7 +1,7 @@
 -- vim: syntax=lua
 -- bgfx interface
 
-version(118)
+version(136)
 
 typedef "bool"
 typedef "char"
@@ -223,15 +223,15 @@ flag.Debug { bits = 32 }
 	()
 
 flag.BufferComputeFormat { bits = 16, shift = 0, range = 4, base = 1 }
-	._8x1  --- 1 8-bit value
-	._8x2  --- 2 8-bit values
-	._8x4  --- 4 8-bit values
-	._16x1 --- 1 16-bit value
-	._16x2 --- 2 16-bit values
-	._16x4 --- 4 16-bit values
-	._32x1 --- 1 32-bit value
-	._32x2 --- 2 32-bit values
-	._32x4 --- 4 32-bit values
+	._8x1  --- 1 x 8-bit value
+	._8x2  --- 2 x 8-bit values
+	._8x4  --- 4 x 8-bit values
+	._16x1 --- 1 x 16-bit value
+	._16x2 --- 2 x 16-bit values
+	._16x4 --- 4 x 16-bit values
+	._32x1 --- 1 x 32-bit value
+	._32x2 --- 2 x 32-bit values
+	._32x4 --- 4 x 32-bit values
 	()
 
 flag.BufferComputeType { bits = 16, shift = 4, range = 2, base = 1 }
@@ -370,6 +370,7 @@ flag.Caps { bits = 64, base = 1, name = "Caps" }
 	.Compute                --- Compute shaders are supported.
 	.ConservativeRaster     --- Conservative rasterization is supported.
 	.DrawIndirect           --- Draw indirect is supported.
+	.DrawIndirectCount      --- Draw indirect with indirect count is supported.
 	.FragmentDepth          --- Fragment depth is available in fragment shader.
 	.FragmentOrdering       --- Fragment ordering is available in fragment shader.
 	.GraphicsDebugger       --- Graphics debugger is present.
@@ -379,22 +380,24 @@ flag.Caps { bits = 64, base = 1, name = "Caps" }
 	.Index32                --- 32-bit indices are supported.
 	.Instancing             --- Instancing is supported.
 	.OcclusionQuery         --- Occlusion query is supported.
+	.PrimitiveId            --- PrimitiveID is available in fragment shader.
 	.RendererMultithreaded  --- Renderer is on separate thread.
 	.SwapChain              --- Multiple windows are supported.
-	.Texture_2dArray        --- 2D texture array is supported.
-	.Texture_3d             --- 3D textures are supported.
 	.TextureBlit            --- Texture blit is supported.
-	.TransparentBackbuffer  --- Transparent back buffer supported.
-	.TextureCompareReserved
 	.TextureCompareLequal   --- Texture compare less equal mode is supported.
+	.TextureCompareReserved
 	.TextureCubeArray       --- Cubemap texture array is supported.
 	.TextureDirectAccess    --- CPU direct access to GPU texture memory.
 	.TextureReadBack        --- Read-back texture is supported.
+	.Texture_2dArray        --- 2D texture array is supported.
+	.Texture_3d             --- 3D textures are supported.
+	.TransparentBackbuffer  --- Transparent back buffer supported.
+	.VariableRateShading    --- Variable Rate Shading
 	.VertexAttribHalf       --- Vertex attribute half-float is supported.
 	.VertexAttribUint10     --- Vertex attribute 10_10_10_2 is supported.
 	.VertexId               --- Rendering with VertexID only is supported.
 	.ViewportLayerArray     --- Viewport layer is available in vertex shader.
-	.DrawIndirectCount      --- Draw indirect with indirect count is supported.
+
 	.TextureCompareAll      --- All texture compare modes are supported.
 	 { "TextureCompareReserved", "TextureCompareLequal" }
 	()
@@ -457,7 +460,6 @@ enum.Fatal { underscore, comment = "" }
 enum.RendererType { comment = "Renderer types:" }
 	.Noop       --- No rendering.
 	.Agc        --- AGC
-	.Direct3D9  --- Direct3D 9.0
 	.Direct3D11 --- Direct3D 11.0
 	.Direct3D12 --- Direct3D 12.0
 	.Gnm        --- GNM
@@ -534,6 +536,10 @@ enum.TextureFormat { comment = "Texture formats:" }
 	.ETC2      --- ETC2 RGB8
 	.ETC2A     --- ETC2 RGBA8
 	.ETC2A1    --- ETC2 RGB8A1
+	.EACR11    --- EAC R11 UNORM
+	.EACR11S   --- EAC R11 SNORM
+	.EACRG11   --- EAC RG11 UNORM
+	.EACRG11S  --- EAC RG11 SNORM
 	.PTC12     --- PVRTC1 RGB 2BPP
 	.PTC14     --- PVRTC1 RGB 4BPP
 	.PTC12A    --- PVRTC1 RGBA 2BPP
@@ -630,6 +636,13 @@ enum.UniformType          { comment = "Uniform types:" }
 	.Mat4    --- 4x4 matrix.
 	()
 
+--- Uniform frequency enum.
+enum.UniformFreq          { comment = "Uniform frequency:" }
+	.Draw    --- Changing per draw call.
+	.View    --- Changing per view.
+	.Frame   --- Changing per frame.
+	()
+
 --- Backbuffer ratio enum.
 enum.BackbufferRatio      { comment = "Backbuffer ratios:" }
 	.Equal     --- Equal to backbuffer.
@@ -689,6 +702,23 @@ enum.ViewMode { underscore, comment = "View modes:" }
 	.DepthDescending --- Sort draw call depth in descending order.
 	()
 
+--- Shading Rate.
+enum.ShadingRate { underscore, comment = "Shading rate:" }
+	.Rate1x1 --- 1x1
+	.Rate1x2 --- 1x2
+	.Rate2x1 --- 2x1
+	.Rate2x2 --- 2x2
+	.Rate2x4 --- 2x4
+	.Rate4x2 --- 4x2
+	.Rate4x4 --- 4x4
+	()
+
+--- Native window handle type.
+enum.NativeWindowHandleType { underscore, comment = "Native Window handle type:" }
+	.Default --- Platform default handle type (X11 on Linux).
+	.Wayland --- Wayland.
+	()
+
 --- Render frame enum.
 enum.RenderFrame { underscore, comment = "" }
 	.NoContext --- Renderer context is not created yet.
@@ -726,8 +756,9 @@ struct.Limits  { namespace = "Caps" }
 	.maxOcclusionQueries     "uint32_t" --- Maximum number of occlusion query handles.
 	.maxEncoders             "uint32_t" --- Maximum number of encoder threads.
 	.minResourceCbSize       "uint32_t" --- Minimum resource command buffer size.
-	.transientVbSize         "uint32_t" --- Maximum transient vertex buffer size.
-	.transientIbSize         "uint32_t" --- Maximum transient index buffer size.
+	.maxTransientVbSize      "uint32_t" --- Maximum transient vertex buffer size.
+	.maxTansientIbSize       "uint32_t" --- Maximum transient index buffer size.
+	.minUniformBufferSize    "uint32_t" --- Mimimum uniform buffer size.
 
 --- Renderer capabilities.
 struct.Caps
@@ -773,62 +804,71 @@ struct.InternalData
 
 --- Platform data.
 struct.PlatformData { ctor }
-	.ndt          "void*" --- Native display type (*nix specific).
-	.nwh          "void*" --- Native window handle. If `NULL`, bgfx will create a headless
-	                      --- context/device, provided the rendering API supports it.
-	.context      "void*" --- GL context, D3D device, or Vulkan device. If `NULL`, bgfx
-						  --- will create context/device.
-	.backBuffer   "void*" --- GL back-buffer, or D3D render target view. If `NULL` bgfx will
-	                      --- create back-buffer color surface.
-	.backBufferDS "void*" --- Backbuffer depth/stencil. If `NULL`, bgfx will create a back-buffer
-	                      --- depth/stencil surface.
+	.ndt "void*" --- Native display type (*nix specific).
+	.nwh "void*"
+		--- Native window handle. If `NULL`, bgfx will create a headless
+		--- context/device, provided the rendering API supports it.
+	.context "void*"
+		--- GL context, D3D device, or Vulkan device. If `NULL`, bgfx
+		--- will create context/device.
+	.backBuffer "void*"
+		--- GL back-buffer, or D3D render target view. If `NULL` bgfx will
+		--- create back-buffer color surface.
+	.backBufferDS "void*"
+		--- Backbuffer depth/stencil. If `NULL`, bgfx will create a back-buffer
+		--- depth/stencil surface.
+	.type "NativeWindowHandleType::Enum" --- Handle type. Needed for platforms having more than one option.
 
 --- Backbuffer resolution and reset parameters.
 struct.Resolution { ctor }
-	.format          "TextureFormat::Enum" --- Backbuffer format.
-	.width           "uint32_t"            --- Backbuffer width.
-	.height          "uint32_t"            --- Backbuffer height.
-	.reset           "uint32_t"            --- Reset parameters.
-	.numBackBuffers  "uint8_t"             --- Number of back buffers.
-	.maxFrameLatency "uint8_t"             --- Maximum frame latency.
+	.formatColor        "TextureFormat::Enum" --- Backbuffer color format.
+	.formatDepthStencil "TextureFormat::Enum" --- Backbuffer depth/stencil format.
+	.width              "uint32_t"            --- Backbuffer width.
+	.height             "uint32_t"            --- Backbuffer height.
+	.reset              "uint32_t"            --- Reset parameters.
+	.numBackBuffers     "uint8_t"             --- Number of back buffers.
+	.maxFrameLatency    "uint8_t"             --- Maximum frame latency.
+	.debugTextScale     "uint8_t"             --- Scale factor for debug text.
 
 --- Configurable runtime limits parameters.
-struct.Limits { namespace = "Init" }
-	.maxEncoders       "uint16_t" --- Maximum number of encoder threads.
-	.minResourceCbSize "uint32_t" --- Minimum resource command buffer size.
-	.transientVbSize   "uint32_t" --- Maximum transient vertex buffer size.
-	.transientIbSize   "uint32_t" --- Maximum transient index buffer size.
+struct.Limits { ctor, namespace = "Init" }
+	.maxEncoders          "uint16_t" --- Maximum number of encoder threads.
+	.minResourceCbSize    "uint32_t" --- Minimum resource command buffer size.
+	.maxTransientVbSize   "uint32_t" --- Maximum transient vertex buffer size.
+	.maxTransientIbSize   "uint32_t" --- Maximum transient index buffer size.
+	.minUniformBufferSize "uint32_t" --- Mimimum uniform buffer size.
 
 --- Initialization parameters used by `bgfx::init`.
 struct.Init { ctor }
-	.type            "RendererType::Enum" --- Select rendering backend. When set to RendererType::Count
-	                                      --- a default rendering backend will be selected appropriate to the platform.
-	                                      --- See: `bgfx::RendererType`
+	.type         "RendererType::Enum" --- Select rendering backend. When set to RendererType::Count
+	                                   --- a default rendering backend will be selected appropriate to the platform.
+	                                   --- See: `bgfx::RendererType`
 
-	.vendorId       "uint16_t"            --- Vendor PCI ID. If set to `BGFX_PCI_ID_NONE`, discrete and integrated
-	                                      --- GPUs will be prioritised.
-	                                      ---   - `BGFX_PCI_ID_NONE` - Autoselect adapter.
-	                                      ---   - `BGFX_PCI_ID_SOFTWARE_RASTERIZER` - Software rasterizer.
-	                                      ---   - `BGFX_PCI_ID_AMD` - AMD adapter.
-	                                      ---   - `BGFX_PCI_ID_APPLE` - Apple adapter.
-	                                      ---   - `BGFX_PCI_ID_INTEL` - Intel adapter.
-	                                      ---   - `BGFX_PCI_ID_NVIDIA` - NVIDIA adapter.
-	                                      ---   - `BGFX_PCI_ID_MICROSOFT` - Microsoft adapter.
+	.vendorId     "uint16_t"           --- Vendor PCI ID. If set to `BGFX_PCI_ID_NONE`, discrete and integrated
+	                                   --- GPUs will be prioritised.
+	                                   ---   - `BGFX_PCI_ID_NONE` - Autoselect adapter.
+	                                   ---   - `BGFX_PCI_ID_SOFTWARE_RASTERIZER` - Software rasterizer.
+	                                   ---   - `BGFX_PCI_ID_AMD` - AMD adapter.
+	                                   ---   - `BGFX_PCI_ID_APPLE` - Apple adapter.
+	                                   ---   - `BGFX_PCI_ID_INTEL` - Intel adapter.
+	                                   ---   - `BGFX_PCI_ID_NVIDIA` - NVIDIA adapter.
+	                                   ---   - `BGFX_PCI_ID_MICROSOFT` - Microsoft adapter.
 
-	.deviceId       "uint16_t"            --- Device ID. If set to 0 it will select first device, or device with
-	                                      --- matching ID.
-	.capabilities   "uint64_t"            --- Capabilities initialization mask (default: UINT64_MAX).
-	.debug          "bool"                --- Enable device for debugging.
-	.profile        "bool"                --- Enable device for profiling.
-	.platformData   "PlatformData"        --- Platform data.
-	.resolution     "Resolution"          --- Backbuffer resolution and reset parameters. See: `bgfx::Resolution`.
-	.limits         "Limits"              --- Configurable runtime limits parameters.
-	.callback       "CallbackI*"          --- Provide application specific callback interface.
-	                                      --- See: `bgfx::CallbackI`
+	.deviceId     "uint16_t"           --- Device ID. If set to 0 it will select first device, or device with
+	                                   --- matching ID.
+	.capabilities "uint64_t"           --- Capabilities initialization mask (default: UINT64_MAX).
+	.debug        "bool"               --- Enable device for debugging.
+	.profile      "bool"               --- Enable device for profiling.
+	.fallback     "bool"               --- Enable fallback to next available renderer.
+	.platformData "PlatformData"       --- Platform data.
+	.resolution   "Resolution"         --- Backbuffer resolution and reset parameters. See: `bgfx::Resolution`.
+	.limits       "Limits"             --- Configurable runtime limits parameters.
+	.callback     "CallbackI*"         --- Provide application specific callback interface.
+	                                   --- See: `bgfx::CallbackI`
 
-	.allocator      "bx::AllocatorI*"     --- Custom allocator. When a custom allocator is not
-	                                      --- specified, bgfx uses the CRT allocator. Bgfx assumes
-	                                      --- custom allocator is thread safe.
+	.allocator    "bx::AllocatorI*"    --- Custom allocator. When a custom allocator is not
+	                                   --- specified, bgfx uses the CRT allocator. Bgfx assumes
+	                                   --- custom allocator is thread safe.
 
 --- Memory must be obtained by calling `bgfx::alloc`, `bgfx::copy`, or `bgfx::makeRef`.
 ---
@@ -965,7 +1005,7 @@ struct.Stats
 	.transientVbUsed         "int32_t"       --- Amount of transient vertex buffer used.
 	.transientIbUsed         "int32_t"       --- Amount of transient index buffer used.
 
-	.numPrims                "uint32_t[Topology::Count]" --- Number of primitives rendered.
+	.numPrims "uint32_t[Topology::Count]"    --- Number of primitives rendered.
 
 	.gpuMemoryMax            "int64_t"       --- Maximum available GPU memory for application.
 	.gpuMemoryUsed           "int64_t"       --- Amount of GPU memory used by the application.
@@ -1038,7 +1078,7 @@ func.VertexLayout.decode { const }
 	.asInt      "bool &"             { out } --- Attribute is packed as int.
 
 --- Returns `true` if VertexLayout contains attribute.
-func.VertexLayout.has { const }
+func.VertexLayout.has { const, cppinline }
 	"bool"                 --- True if VertexLayout contains attribute.
 	.attrib "Attrib::Enum" --- Attribute semantics. See: `bgfx::Attrib`
 
@@ -1053,16 +1093,16 @@ func.VertexLayout["end"]
 	"void"
 
 --- Returns relative attribute offset from the vertex.
-func.VertexLayout.getOffset { const , cpponly }
+func.VertexLayout.getOffset { const, cppinline }
 	"uint16_t"                --- Relative attribute offset from the vertex.
 	.attrib    "Attrib::Enum" --- Attribute semantics. See: `bgfx::Attrib`
 
 --- Returns vertex stride.
-func.VertexLayout.getStride { const , cpponly }
+func.VertexLayout.getStride { const, cppinline }
 	"uint16_t" --- Vertex stride.
 
 --- Returns size of vertex buffer for number of vertices.
-func.VertexLayout.getSize { const, cpponly }
+func.VertexLayout.getSize { const, cppinline }
 	"uint32_t"      --- Size of vertex buffer for number of vertices.
 	.num "uint32_t" --- Number of vertices.
 
@@ -1153,9 +1193,10 @@ func.getRendererName
 	"const char*"              --- Name of renderer.
 	.type "RendererType::Enum" --- Renderer backend type. See: `bgfx::RendererType`
 
+--- Fill bgfx::Init struct with default values, before using it to initialize the library.
 func.initCtor { cfunc }
 	"void"
-	.init "Init*"
+	.init "Init*" --- Pointer to structure to be initialized. See: `bgfx::Init` for more info.
 
 --- Initialize the bgfx library.
 func.init { cfunc }
@@ -1221,7 +1262,7 @@ func.getCaps
 --- @attention Pointer returned is valid until `bgfx::frame` is called.
 ---
 func.getStats
-	"const Stats*" -- Performance counters.
+	"const Stats*" --- Performance counters.
 
 --- Allocate buffer to pass to bgfx calls. Data will be freed inside bgfx.
 func.alloc
@@ -1556,6 +1597,10 @@ func.destroy { cname = "destroy_indirect_buffer" }
 	.handle "IndirectBufferHandle" --- Indirect buffer handle.
 
 --- Create shader from memory buffer.
+---
+--- @remarks
+---   Shader binary is obtained by compiling shader offline with shaderc command line tool.
+---
 func.createShader
 	"ShaderHandle"       --- Shader handle.
 	.mem "const Memory*" --- Shader binary.
@@ -1643,7 +1688,7 @@ func.createTexture
 	"TextureHandle"                            --- Texture handle.
 	.mem   "const Memory*"                     --- DDS, KTX or PVR texture binary data.
 	.flags "uint64_t"                          --- Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
-	 { "BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE" } --- flags. Default texture sampling mode is linear, and wrap mode is repeat.
+	 { default = "BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE" } --- flags. Default texture sampling mode is linear, and wrap mode is repeat.
 	                                           --- - `BGFX_SAMPLER_[U/V/W]_[MIRROR/CLAMP]` - Mirror or clamp to edge wrap
 	                                           ---   mode.
 	                                           --- - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
@@ -1663,7 +1708,7 @@ func.createTexture2D
 	                                           --- `BGFX_CAPS_TEXTURE_2D_ARRAY` flag is not set.
 	.format    "TextureFormat::Enum"           --- Texture format. See: `TextureFormat::Enum`.
 	.flags     "uint64_t"                      --- Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
-	 { "BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE" } --- flags. Default texture sampling mode is linear, and wrap mode is repeat.
+	 { default = "BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE" } --- flags. Default texture sampling mode is linear, and wrap mode is repeat.
 	                                           --- - `BGFX_SAMPLER_[U/V/W]_[MIRROR/CLAMP]` - Mirror or clamp to edge wrap
 	                                           ---   mode.
 	                                           --- - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
@@ -1941,12 +1986,48 @@ func.destroy { cname = "destroy_frame_buffer" }
 ---      - `u_model mat4[BGFX_CONFIG_MAX_BONES]` - array of model matrices.
 ---      - `u_modelView mat4` - concatenated model view matrix, only first
 ---        model matrix from array is used.
+---      - `u_invModelView mat4` - inverted concatenated model view matrix.
 ---      - `u_modelViewProj mat4` - concatenated model view projection matrix.
 ---      - `u_alphaRef float` - alpha reference value for alpha test.
 ---
 func.createUniform
 	"UniformHandle"           --- Handle to uniform object.
 	.name "const char*"       --- Uniform name in shader.
+	.type "UniformType::Enum" --- Type of uniform (See: `bgfx::UniformType`).
+	.num  "uint16_t"          --- Number of elements in array.
+	 { default = 1 }
+
+--- Create shader uniform parameter.
+---
+--- @remarks
+---   1. Uniform names are unique. It's valid to call `bgfx::createUniform`
+---      multiple times with the same uniform name. The library will always
+---      return the same handle, but the handle reference count will be
+---      incremented. This means that the same number of `bgfx::destroyUniform`
+---      must be called to properly destroy the uniform.
+---
+---   2. Predefined uniforms (declared in `bgfx_shader.sh`):
+---      - `u_viewRect vec4(x, y, width, height)` - view rectangle for current
+---        view, in pixels.
+---      - `u_viewTexel vec4(1.0/width, 1.0/height, undef, undef)` - inverse
+---        width and height
+---      - `u_view mat4` - view matrix
+---      - `u_invView mat4` - inverted view matrix
+---      - `u_proj mat4` - projection matrix
+---      - `u_invProj mat4` - inverted projection matrix
+---      - `u_viewProj mat4` - concatenated view projection matrix
+---      - `u_invViewProj mat4` - concatenated inverted view projection matrix
+---      - `u_model mat4[BGFX_CONFIG_MAX_BONES]` - array of model matrices.
+---      - `u_modelView mat4` - concatenated model view matrix, only first
+---        model matrix from array is used.
+---      - `u_invModelView mat4` - inverted concatenated model view matrix.
+---      - `u_modelViewProj mat4` - concatenated model view projection matrix.
+---      - `u_alphaRef float` - alpha reference value for alpha test.
+---
+func.createUniform { cname = "create_uniform_with_freq" }
+	"UniformHandle"           --- Handle to uniform object.
+	.name "const char*"       --- Uniform name in shader.
+	.freq "UniformFreq::Enum" --- Uniform change frequency (See: `bgfx::UniformFreq`).
 	.type "UniformType::Enum" --- Type of uniform (See: `bgfx::UniformType`).
 	.num  "uint16_t"          --- Number of elements in array.
 	 { default = 1 }
@@ -1986,6 +2067,15 @@ func.setPaletteColor
 	.rgba  "const float[4]" --- RGBA floating point values.
 
 --- Set palette color value.
+func.setPaletteColor { cname = "set_palette_color_rgba32f" }
+	"void"
+	.index "uint8_t" --- Index into palette.
+	.r     "float"   --- Red value (RGBA floating point values)
+	.g     "float"   --- Green value (RGBA floating point values)
+	.b     "float"   --- Blue value (RGBA floating point values)
+	.a     "float"   --- Alpha value (RGBA floating point values)
+
+--- Set palette color value.
 func.setPaletteColor { cname = "set_palette_color_rgba8" }
 	"void"
 	.index "uint8_t"  --- Index into palette.
@@ -2005,8 +2095,10 @@ func.setPaletteColor { cname = "set_palette_color_rgba8" }
 ---
 func.setViewName
 	"void"
-	.id   "ViewId"      --- View id.
-	.name "const char*" --- View name.
+	.id   "ViewId"           --- View id.
+	.name "const char*"      --- View name.
+	.len    "int32_t"        --- View name length (if length is INT32_MAX, it's expected
+	 { default = INT32_MAX } --- that _name is zero terminated string.
 
 --- Set view rectangle. Draw primitive outside view will be clipped.
 func.setViewRect
@@ -2122,15 +2214,26 @@ func.setViewOrder
 	                       --- to default state.
 	 { default = NULL }
 
+--- Set view shading rate.
+---
+--- @attention Availability depends on: `BGFX_CAPS_VARIABLE_RATE_SHADING`.
+---
+func.setViewShadingRate
+	"void"
+	.id          "ViewId"            --- View id.
+	.shadingRate "ShadingRate::Enum" --- Shading rate.
+	 { default = "ShadingRate::Rate1x1" }
+
 --- Reset all view settings to default.
 func.resetView
 	"void"
-	.id "ViewId" -- _id View id.
+	.id "ViewId" --- _id View id.
 
 --- Begin submitting draw calls from thread.
 func.begin { cname = "encoder_begin" }
 	"Encoder*"        --- Encoder.
 	.forThread "bool" --- Explicitly request an encoder for a worker thread.
+	 { default = false }
 
 --- End submitting draw calls from thread.
 func["end"] { cname = "encoder_end" }
@@ -2141,7 +2244,9 @@ func["end"] { cname = "encoder_end" }
 --- graphics debugging tools.
 func.Encoder.setMarker
 	"void"
-	.marker "const char*" --- Marker string.
+	.name   "const char*"       --- Marker name.
+	.len    "int32_t"           --- Marker name length (if length is INT32_MAX, it's expected
+	 { default = INT32_MAX }    --- that _name is zero terminated string.
 
 --- Set render states for draw primitive.
 ---
@@ -2214,6 +2319,7 @@ func.Encoder.setTransform
 	                   --- to be used for other draw primitive call.
 	.mtx "const void*" --- Pointer to first matrix in array.
 	.num "uint16_t"    --- Number of matrices in array.
+	 { default = 1 }
 
 ---  Set model matrix from matrix cache for draw primitive.
 func.Encoder.setTransform { cname = "set_transform_cached" }
@@ -2233,6 +2339,31 @@ func.Encoder.allocTransform
 
 --- Set shader uniform parameter for draw primitive.
 func.Encoder.setUniform
+	"void"
+	.handle "UniformHandle" --- Uniform.
+	.value  "const void*"   --- Pointer to uniform data.
+	.num    "uint16_t"      --- Number of elements. Passing `UINT16_MAX` will
+	                        --- use the _num passed on uniform creation.
+	 { default = 1 }
+
+--- Set shader uniform parameter for view.
+---
+--- @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+---
+func.setViewUniform
+	"void"
+	.id     "ViewId"        --- View id.
+	.handle "UniformHandle" --- Uniform.
+	.value  "const void*"   --- Pointer to uniform data.
+	.num    "uint16_t"      --- Number of elements. Passing `UINT16_MAX` will
+	                        --- use the _num passed on uniform creation.
+	 { default = 1 }
+
+--- Set shader uniform parameter for frame.
+---
+--- @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+---
+func.setFrameUniform
 	"void"
 	.handle "UniformHandle" --- Uniform.
 	.value  "const void*"   --- Pointer to uniform data.
@@ -2375,21 +2506,11 @@ func.Encoder.setInstanceDataBuffer
 	.num   "uint32_t"                  --- Number of data instances.
 
 --- Set instance data buffer for draw primitive.
-func.Encoder.setInstanceDataBuffer { cpponly }
-	"void"
-	.handle      "VertexBufferHandle" --- Vertex buffer.
-
---- Set instance data buffer for draw primitive.
 func.Encoder.setInstanceDataBuffer { cname = "set_instance_data_from_vertex_buffer" }
 	"void"
 	.handle      "VertexBufferHandle" --- Vertex buffer.
 	.startVertex "uint32_t"           --- First instance data.
 	.num         "uint32_t"           --- Number of data instances.
-
- --- Set instance data buffer for draw primitive.
-func.Encoder.setInstanceDataBuffer { cpponly }
-	"void"
-	.handle      "DynamicVertexBufferHandle" --- Dynamic vertex buffer.
 
 --- Set instance data buffer for draw primitive.
 func.Encoder.setInstanceDataBuffer { cname = "set_instance_data_from_dynamic_vertex_buffer" }
@@ -2405,7 +2526,7 @@ func.Encoder.setInstanceDataBuffer { cname = "set_instance_data_from_dynamic_ver
 ---
 func.Encoder.setInstanceCount
 	"void"
-	.numInstances "uint32_t" -- Number of instances.
+	.numInstances "uint32_t" --- Number of instances.
 
 --- Set texture stage for draw primitive.
 func.Encoder.setTexture
@@ -2463,9 +2584,9 @@ func.Encoder.submit { cname = "submit_indirect" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	 { default = 0 }
-	.num            "uint16_t"             --- Number of draws.
+	.num            "uint32_t"             --- Number of draws.
 	 { default = 1 }
 	.depth          "uint32_t"             --- Depth for sorting.
 	 { default = 0 }
@@ -2482,13 +2603,13 @@ func.Encoder.submit { cname = "submit_indirect_count" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	.numHandle      "IndexBufferHandle"    --- Buffer for number of draws. Must be
 	                                       ---   created with `BGFX_BUFFER_INDEX32` and `BGFX_BUFFER_DRAW_INDIRECT`.
 	.numIndex       "uint32_t"             --- Element in number buffer.
 	{ default = 0 }
-	.numMax         "uint16_t"             --- Max number of draws.
-	{ default = UINT16_MAX }
+	.numMax         "uint32_t"             --- Max number of draws.
+	{ default = UINT32_MAX }
 	.depth          "uint32_t"             --- Depth for sorting.
 	{ default = 0 }
 	.flags          "uint8_t"              --- Discard or preserve states. See `BGFX_DISCARD_*`.
@@ -2559,9 +2680,9 @@ func.Encoder.dispatch { cname = "dispatch_indirect" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Compute program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	 { default = 0 }
-	.num            "uint16_t"             --- Number of dispatches.
+	.num            "uint32_t"             --- Number of dispatches.
 	 { default = 1 }
 	.flags   "uint8_t"                     --- Discard or preserve states. See `BGFX_DISCARD_*`.
 	 { default = "BGFX_DISCARD_ALL" }
@@ -2682,10 +2803,12 @@ func.getInternalData
 --- @warning Must be called only on render thread.
 ---
 func.overrideInternal { cname = "override_internal_texture_ptr" }
-	"uintptr_t"             --- Native API pointer to texture. If result is 0, texture is not created
-	                        --- yet from the main thread.
-	.handle "TextureHandle" --- Texture handle.
-	.ptr    "uintptr_t"     --- Native API pointer to texture.
+	"uintptr_t"                  --- Native API pointer to texture. If result is 0, texture is not created
+	                             --- yet from the main thread.
+	.handle      "TextureHandle" --- Texture handle.
+	.ptr         "uintptr_t"     --- Native API pointer to texture.
+	.layerIndex  "uint16_t"      --- Layer index for texture arrays (only implemented for D3D11).
+	{ default = 0 }
 
 --- Override internal texture by creating new texture. Previously created
 --- internal texture will released.
@@ -2712,6 +2835,7 @@ func.overrideInternal { cname = "override_internal_texture" }
 	                               ---   mode.
 	                               --- - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
 	                               ---   sampling.
+	{ default = "BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE" }
 
 -- Legacy API:
 
@@ -2719,7 +2843,9 @@ func.overrideInternal { cname = "override_internal_texture" }
 --- graphics debugging tools.
 func.setMarker
 	"void"
-	.marker "const char*" --- Marker string.
+	.name   "const char*"    --- Marker name.
+	.len    "int32_t"        --- Marker name length (if length is INT32_MAX, it's expected
+	 { default = INT32_MAX } --- that _name is zero terminated string.
 
 --- Set render states for draw primitive.
 ---
@@ -2792,6 +2918,7 @@ func.setTransform
 	                   --- to be used for other draw primitive call.
 	.mtx "const void*" --- Pointer to first matrix in array.
 	.num "uint16_t"    --- Number of matrices in array.
+	 { default = 1 }
 
 ---  Set model matrix from matrix cache for draw primitive.
 func.setTransform { cname = "set_transform_cached" }
@@ -2955,21 +3082,11 @@ func.setInstanceDataBuffer
 	.num   "uint32_t"                  --- Number of data instances.
 
 --- Set instance data buffer for draw primitive.
-func.setInstanceDataBuffer { cpponly }
-	"void"
-	.handle      "VertexBufferHandle" --- Vertex buffer.
-
---- Set instance data buffer for draw primitive.
 func.setInstanceDataBuffer { cname = "set_instance_data_from_vertex_buffer" }
 	"void"
 	.handle      "VertexBufferHandle" --- Vertex buffer.
 	.startVertex "uint32_t"           --- First instance data.
 	.num         "uint32_t"           --- Number of data instances.
-
- --- Set instance data buffer for draw primitive.
-func.setInstanceDataBuffer { cpponly }
-	"void"
-	.handle      "DynamicVertexBufferHandle" --- Dynamic vertex buffer.
 
 --- Set instance data buffer for draw primitive.
 func.setInstanceDataBuffer { cname = "set_instance_data_from_dynamic_vertex_buffer" }
@@ -2985,7 +3102,7 @@ func.setInstanceDataBuffer { cname = "set_instance_data_from_dynamic_vertex_buff
 ---
 func.setInstanceCount
 	"void"
-	.numInstances "uint32_t" -- Number of instances.
+	.numInstances "uint32_t" --- Number of instances.
 
 --- Set texture stage for draw primitive.
 func.setTexture
@@ -3041,9 +3158,9 @@ func.submit { cname = "submit_indirect" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	{ default = 0 }
-	.num            "uint16_t"             --- Number of draws.
+	.num            "uint32_t"             --- Number of draws.
 	{ default = 1 }
 	.depth          "uint32_t"             --- Depth for sorting.
 	{ default = 0 }
@@ -3060,13 +3177,13 @@ func.submit { cname = "submit_indirect_count" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	.numHandle      "IndexBufferHandle"    --- Buffer for number of draws. Must be
 	                                       ---   created with `BGFX_BUFFER_INDEX32` and `BGFX_BUFFER_DRAW_INDIRECT`.
 	.numIndex       "uint32_t"             --- Element in number buffer.
 	{ default = 0 }
-	.numMax         "uint16_t"             --- Max number of draws.
-	{ default = UINT16_MAX }
+	.numMax         "uint32_t"             --- Max number of draws.
+	{ default = UINT32_MAX }
 	.depth          "uint32_t"             --- Depth for sorting.
 	{ default = 0 }
 	.flags          "uint8_t"              --- Which states to discard for next draw. See `BGFX_DISCARD_*`.
@@ -3137,9 +3254,9 @@ func.dispatch { cname = "dispatch_indirect" }
 	.id             "ViewId"               --- View id.
 	.program        "ProgramHandle"        --- Compute program.
 	.indirectHandle "IndirectBufferHandle" --- Indirect buffer.
-	.start          "uint16_t"             --- First element in indirect buffer.
+	.start          "uint32_t"             --- First element in indirect buffer.
 	 { default = 0 }
-	.num            "uint16_t"             --- Number of dispatches.
+	.num            "uint32_t"             --- Number of dispatches.
 	 { default = 1 }
 	.flags   "uint8_t"                     --- Discard or preserve states. See `BGFX_DISCARD_*`.
 	 { default = "BGFX_DISCARD_ALL" }

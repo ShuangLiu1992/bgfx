@@ -1,23 +1,13 @@
 /*
- * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
 #ifndef BGFX_RENDERER_D3D_H_HEADER_GUARD
 #define BGFX_RENDERER_D3D_H_HEADER_GUARD
 
-#if 0 // BGFX_CONFIG_DEBUG && BGFX_CONFIG_RENDERER_DIRECT3D9 && !(BX_COMPILER_GCC || BX_COMPILER_CLANG)
-#	include <sal.h>
-#	include <dxerr.h>
-#	if BX_COMPILER_MSVC
-#		pragma comment(lib, "dxerr.lib")
-#	endif // BX_COMPILER_MSVC
-#	define DX_CHECK_EXTRA_F " (%s): %s"
-#	define DX_CHECK_EXTRA_ARGS , DXGetErrorString(__hr__), DXGetErrorDescription(__hr__)
-#else
-#	define DX_CHECK_EXTRA_F ""
-#	define DX_CHECK_EXTRA_ARGS
-#endif // BGFX_CONFIG_DEBUG && BGFX_CONFIG_RENDERER_DIRECT3D9
+#define DX_CHECK_EXTRA_F ""
+#define DX_CHECK_EXTRA_ARGS
 
 #ifndef DXGI_ERROR_NOT_CURRENTLY_AVAILABLE
 #	define DXGI_ERROR_NOT_CURRENTLY_AVAILABLE HRESULT(0x887A0022)
@@ -73,6 +63,12 @@ namespace bgfx
 #else
 	typedef ::IGraphicsUnknown IUnknown;
 #endif // BX_PLATFORM_WINDOWS || BX_PLATFORM_WINRT
+
+	inline constexpr uint32_t toPixColor(uint32_t _abgr)
+	{
+		// ABGR -> BGRA
+		return (_abgr >> 8) | (_abgr << 24);
+	}
 
 #define _DX_CHECK(_call)                                                                   \
 			BX_MACRO_BLOCK_BEGIN                                                           \

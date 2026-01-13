@@ -67,7 +67,7 @@ static const char* s_attribShortNames[] =
 	"TC6", // TexCoord6
 	"TC7", // TexCoord7
 };
-BX_STATIC_ASSERT(BX_COUNTOF(s_attribShortNames) == bgfx::Attrib::Count);
+static_assert(BX_COUNTOF(s_attribShortNames) == bgfx::Attrib::Count);
 
 
 static const char* s_supportedExt[] =
@@ -150,7 +150,7 @@ static const char* s_bindingName[] =
 	"Help",
 	"About",
 };
-BX_STATIC_ASSERT(Binding::Count == BX_COUNTOF(s_bindingName) );
+static_assert(Binding::Count == BX_COUNTOF(s_bindingName) );
 
 static const InputBinding* s_binding[] =
 {
@@ -159,7 +159,7 @@ static const InputBinding* s_binding[] =
 	s_bindingHelp,
 	s_bindingAbout,
 };
-BX_STATIC_ASSERT(Binding::Count == BX_COUNTOF(s_binding) );
+static_assert(Binding::Count == BX_COUNTOF(s_binding) );
 
 static const char* s_filter = ""
 	"Bgfx geometry (bin) | *.bin\n"
@@ -169,7 +169,7 @@ struct Camera
 {
 	Camera()
 	{
-		init(bx::init::Zero, 2.0f, 0.01f, 100.0f);
+		init(bx::InitZero, 2.0f, 0.01f, 100.0f);
 	}
 
 	void init(const bx::Vec3& _center, float _distance, float _near, float _far)
@@ -265,8 +265,8 @@ struct Camera
 
 	struct Interp3f
 	{
-		bx::Vec3 curr = bx::init::None;
-		bx::Vec3 dest = bx::init::None;
+		bx::Vec3 curr = bx::InitNone;
+		bx::Vec3 dest = bx::InitNone;
 	};
 
 	Interp3f m_target;
@@ -621,7 +621,7 @@ struct InterpolatorT
 		if (isActive() )
 		{
 			const double freq = double(bx::getHPFrequency() );
-			int64_t now = bx::getHPCounter();
+			const int64_t now = bx::getHPCounter();
 			float time = (float)(double(now - offset) / freq);
 			float lerp = bx::clamp(time, 0.0f, duration) / duration;
 			return lerpT(from, to, easeT(lerp) );
@@ -633,7 +633,7 @@ struct InterpolatorT
 	bool isActive() const
 	{
 		const double freq = double(bx::getHPFrequency() );
-		int64_t now = bx::getHPCounter();
+		const int64_t now = bx::getHPCounter();
 		float time = (float)(double(now - offset) / freq);
 		float lerp = bx::clamp(time, 0.0f, duration) / duration;
 		return lerp < 1.0f;
@@ -1124,8 +1124,6 @@ int _main_(int _argc, char** _argv)
 
 			if (ImGui::BeginPopupModal("About", &view.m_about, ImGuiWindowFlags_AlwaysAutoResize) )
 			{
-				ImGui::SetWindowFontScale(1.0f);
-
 				ImGui::Text(
 					"geometryv, bgfx geometry viewer tool " ICON_KI_WRENCH ", version %d.%d.%d.\n"
 					"Copyright 2019-2019 Attila Kocsis. All rights reserved.\n"
@@ -1149,8 +1147,6 @@ int _main_(int _argc, char** _argv)
 
 			if (ImGui::BeginPopupModal("Help", &view.m_help, ImGuiWindowFlags_AlwaysAutoResize) )
 			{
-				ImGui::SetWindowFontScale(1.0f);
-
 				ImGui::Text("Key bindings:\n\n");
 
 				ImGui::PushFont(ImGui::Font::Mono);
@@ -1253,7 +1249,7 @@ int _main_(int _argc, char** _argv)
 				entry::setWindowTitle(entry::kDefaultWindowHandle, title.c_str() );
 			}
 
-			int64_t now = bx::getHPCounter();
+			const int64_t now = bx::getHPCounter();
 			static int64_t last = now;
 			const int64_t frameTime = now - last;
 			last = now;

@@ -16,21 +16,26 @@
 // constructs (e.g., unreachable basic blocks, empty control flow structures,
 // etc)
 
-#include <queue>
-#include <unordered_set>
-
 #include "source/opt/cfg_cleanup_pass.h"
 
 #include "source/opt/function.h"
-#include "source/opt/module.h"
 
 namespace spvtools {
 namespace opt {
 
 Pass::Status CFGCleanupPass::Process() {
   // Process all entry point functions.
-  ProcessFunction pfn = [this](Function* fp) { return CFGCleanup(fp); };
+  bool failure = false;
+  ProcessFunction pfn = [this, &failure](Function* fp) {
+    auto status = CFGCleanup(fp);
+    if (status == Status::Failure) {
+      failure = true;
+      return false;
+    }
+    return status == Status::SuccessWithChange;
+  };
   bool modified = context()->ProcessReachableCallTree(pfn);
+  if (failure) return Pass::Status::Failure;
   return modified ? Pass::Status::SuccessWithChange
                   : Pass::Status::SuccessWithoutChange;
 }
