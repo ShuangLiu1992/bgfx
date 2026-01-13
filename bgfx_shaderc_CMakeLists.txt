@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         ./tools/shaderc/shaderc_metal.cpp
         ./tools/shaderc/shaderc_hlsl.cpp
         ./tools/shaderc/shaderc_glsl.cpp
+        ./tools/shaderc/shaderc_wgsl.cpp
         ./tools/shaderc/shaderc.cpp
         )
 
