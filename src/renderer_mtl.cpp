@@ -3964,24 +3964,37 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 			MTL::Texture* tempTexture = s_renderMtl->m_device->newTexture(desc);
 
-			MTL::Region region(0, 0, 0, width, height, _depth);
+			// newTexture() can return nil under transient GPU memory pressure (large,
+			// high-frequency texture updates). Guard both the staging texture and the
+			// destination: blitting from/to a nil MTLTexture faults inside the Metal
+			// blit encoder. Fall back to a direct replaceRegion if only staging failed.
+			if (NULL != tempTexture && NULL != m_ptr)
+			{
+				MTL::Region region(0, 0, 0, width, height, _depth);
 
-			tempTexture->replaceRegion(region, 0, 0, data, srcpitch, srcpitch * _rect.m_height);
+				tempTexture->replaceRegion(region, 0, 0, data, srcpitch, srcpitch * _rect.m_height);
 
-			bce->copyFromTexture(
-				  tempTexture
-				, 0
-				, 0
-				, MTL::Origin::Make(0,0,0)
-				, MTL::Size::Make(width, height, _depth)
-				, m_ptr
-				, slice
-				, _mip
-				, MTL::Origin::Make(_rect.m_x, _rect.m_y, zz)
-				);
+				bce->copyFromTexture(
+					  tempTexture
+					, 0
+					, 0
+					, MTL::Origin::Make(0,0,0)
+					, MTL::Size::Make(width, height, _depth)
+					, m_ptr
+					, slice
+					, _mip
+					, MTL::Origin::Make(_rect.m_x, _rect.m_y, zz)
+					);
+
+				MTL_RELEASE(tempTexture, 1);
+			}
+			else if (NULL != m_ptr)
+			{
+				MTL::Region region(_rect.m_x, _rect.m_y, zz, width, height, _depth);
+				m_ptr->replaceRegion(region, _mip, slice, data, srcpitch, srcpitch * _rect.m_height);
+			}
 
 			MTL_RELEASE(desc, 0);
-			MTL_RELEASE(tempTexture, 1);
 		}
 
 		if (NULL != temp)
