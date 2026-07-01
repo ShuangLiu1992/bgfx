@@ -812,10 +812,6 @@ namespace wgpu {
 		Result m_result[BGFX_CONFIG_MAX_VIEWS+1];
 		Query m_query[BGFX_CONFIG_MAX_VIEWS*4];
 
-		WGPUQuerySet m_querySet;
-		WGPUBuffer m_resolve;
-		WGPUBuffer m_readback;
-
 		bx::RingBufferControl m_control;
 	};
 

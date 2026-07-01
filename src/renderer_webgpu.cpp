@@ -5046,56 +5046,20 @@ m_resolution.formatColor = TextureFormat::BGRA8;
 
 	void TimerQueryWGPU::init()
 	{
-		WGPUDevice device = s_renderWGPU->m_device;
-
-		static constexpr uint32_t kCount = BX_COUNTOF(m_query);
-
-		WGPUQuerySetDescriptor querySetDesc =
-		{
-			.nextInChain = NULL,
-			.label       = toWGPUStringView("TimerQuery"),
-			.type        = WGPUQueryType_Timestamp,
-			.count       = kCount,
-		};
-
-		m_querySet = WGPU_CHECK(wgpuDeviceCreateQuerySet(device, &querySetDesc) );
-
-		static constexpr uint64_t kTimestampBufferSize = kCount * sizeof(uint64_t);
-
-		WGPUBufferDescriptor resolveBufferDesc =
-		{
-			.nextInChain = NULL,
-			.label       = toWGPUStringView("TimerQuery - Resolve Buffer"),
-			.usage       = 0
-				| WGPUBufferUsage_CopySrc
-				| WGPUBufferUsage_QueryResolve
-				,
-			.size = kTimestampBufferSize,
-			.mappedAtCreation = false,
-		};
-
-		m_resolve = WGPU_CHECK(wgpuDeviceCreateBuffer(device, &resolveBufferDesc) );
-
-		WGPUBufferDescriptor readbackBufferDesc =
-		{
-			.nextInChain = NULL,
-			.label       = toWGPUStringView("TimerQuery - Readback Buffer"),
-			.usage       = 0
-				| WGPUBufferUsage_MapRead
-				| WGPUBufferUsage_CopyDst
-				,
-			.size = kTimestampBufferSize,
-			.mappedAtCreation = false,
-		};
-
-		m_readback = WGPU_CHECK(wgpuDeviceCreateBuffer(device, &readbackBufferDesc) );
+		// GPU frame timing is not implemented for the WebGPU backend: the query
+		// set was never resolved or read back and perfStats.gpuTime* are always
+		// reported as 0 (see RendererContextWGPU::submit). The timestamps were
+		// written with wgpuCommandEncoderWriteTimestamp, but
+		// GPUCommandEncoder.writeTimestamp has been removed from the WebGPU spec
+		// (timestamps are now written through render/compute pass descriptors'
+		// timestampWrites), so that call traps on spec-compliant implementations.
+		// Drop the unused query-set/buffer allocations along with the writes; a
+		// real implementation should route timestampWrites through the pass
+		// descriptors and resolve the query set.
 	}
 
 	void TimerQueryWGPU::shutdown()
 	{
-		wgpuDestroy(m_querySet);
-		wgpuDestroy(m_resolve);
-		wgpuDestroy(m_readback);
 	}
 
 	uint32_t TimerQueryWGPU::begin(uint32_t _resultIdx, uint32_t _frameNum)
@@ -5113,9 +5077,6 @@ m_resolution.formatColor = TextureFormat::BGRA8;
 			query.m_ready     = false;
 			query.m_frameNum  = _frameNum;
 
-			const uint32_t offset = idx * 2 + 0;
-			WGPU_CHECK(wgpuCommandEncoderWriteTimestamp(s_renderWGPU->m_cmd.m_commandEncoder, m_querySet, offset) );
-
 			return idx;
 		}
 
@@ -5129,9 +5090,6 @@ m_resolution.formatColor = TextureFormat::BGRA8;
 		Query& query = m_query[_idx];
 		query.m_ready = true;
 		query.m_fence = s_renderWGPU->m_cmd.m_counter;
-
-		const uint32_t offset = _idx * 2 + 1;
-		WGPU_CHECK(wgpuCommandEncoderWriteTimestamp(s_renderWGPU->m_cmd.m_commandEncoder, m_querySet, offset) );
 
 		m_control.consume(1);
 	}
